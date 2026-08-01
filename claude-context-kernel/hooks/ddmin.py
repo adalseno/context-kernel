@@ -1,27 +1,27 @@
 #!/usr/bin/env python3
 """
-ddmin.py — minimalita' EMPIRICA (delta debugging, Zeller & Hildebrandt 2002).
+ddmin.py — EMPIRICAL minimality (delta debugging, Zeller & Hildebrandt 2002).
 
-La sufficiency oracle (T4) PREDICE la distorsione sul grafo statico; ddmin la
-PROVA eseguendo: dato un input che riproduce un fallimento e un oracolo
-pass/fail, trova il sottoinsieme 1-MINIMALE che ANCORA riproduce — nessun
-elemento in piu' puo' essere tolto senza perdere il fallimento. E' il rate
-massimo a distorsione zero, misurato invece che stimato, sul lato della QUERY:
-un sintomo/ripro minimizzato e' un Q piu' stretto -> una proiezione (T2) piu'
-precisa. Deterministico, stdlib, zero API.
+The sufficiency oracle (T4) PREDICTS distortion over the static graph; ddmin
+PROVES it by running: given an input that reproduces a failure and a pass/fail
+oracle, it finds the 1-MINIMAL subset that STILL reproduces — no further
+element can be removed without losing the failure. It is the maximum rate at
+zero distortion, measured instead of estimated, on the QUERY side: a minimised
+symptom/repro is a tighter Q -> a more precise projection (T2). Deterministic,
+stdlib, zero API.
 
-    # minimizza le righe di un input che ancora fanno fallire un comando
+    # minimise the lines of an input that still make a command fail
     python3 ddmin.py --oracle 'python3 buggy.py {} ; test $? -eq 1' \
-                     --input caso.txt --unit line
+                     --input case.txt --unit line
 
-    # minimizza carattere per carattere (es. un path JSON che manda in panic)
+    # minimise character by character (e.g. a JSON path that triggers a panic)
     python3 ddmin.py --oracle './repro.sh {}' --input payload.txt --unit char
 
-CONTRATTO DELL'ORACOLO: riceve il candidato (il segnaposto {} sostituito col
-path di un file temporaneo; senza {} il candidato arriva su stdin) ed ESCE con
---fail-exit (default 0) quando il fallimento e' ANCORA presente ("riproduce").
-Qualunque altro exit = non riproduce. L'oracolo lo scrivi tu: e' cio' che
-definisce "stesso fallimento" (un grep sul panic, un exit code, un diff).
+ORACLE CONTRACT: it receives the candidate (the {} placeholder replaced by the
+path of a temporary file; without {} the candidate arrives on stdin) and EXITS
+with --fail-exit (default 0) when the failure is STILL present ("reproduces").
+Any other exit = does not reproduce. You write the oracle: it is what defines
+"the same failure" (a grep on the panic, an exit code, a diff).
 """
 from __future__ import annotations
 
@@ -86,19 +86,19 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--oracle", required=True,
-                    help="comando; {} = path del candidato (senza {} -> stdin); "
-                         "exit --fail-exit = riproduce")
-    ap.add_argument("--input", required=True, help="file con l'input da minimizzare")
+                    help="command; {} = path of the candidate (without {} -> stdin); "
+                         "exit --fail-exit = reproduces")
+    ap.add_argument("--input", required=True, help="file holding the input to minimise")
     ap.add_argument("--unit", choices=("line", "char"), default="line")
     ap.add_argument("--fail-exit", type=int, default=0,
-                    help="exit code dell'oracolo che significa 'riproduce' (def 0)")
+                    help="oracle exit code that means 'reproduces' (default 0)")
     ap.add_argument("--timeout", type=int, default=60)
     args = ap.parse_args()
 
     try:
         text = open(args.input, encoding="utf-8", errors="replace").read()
     except Exception as e:                         # noqa: BLE001
-        print(f"input illeggibile: {e}", file=sys.stderr)
+        print(f"input not readable: {e}", file=sys.stderr)
         return 2
 
     calls = {"n": 0}
@@ -131,8 +131,8 @@ def main() -> int:
 
     units = _split(text, args.unit)
     if not reproduces(units):
-        print("l'input COMPLETO non riproduce (exit != --fail-exit): "
-              "controlla l'oracolo o --fail-exit. Niente da minimizzare.",
+        print("the FULL input does not reproduce (exit != --fail-exit): "
+              "check the oracle or --fail-exit. Nothing to minimise.",
               file=sys.stderr)
         return 2
 
@@ -142,7 +142,7 @@ def main() -> int:
     print(out)
     pct = (1 - len(minimal) / before) * 100 if before else 0.0
     print(f"[ddmin: {before} -> {len(minimal)} {args.unit} (-{pct:.0f}%), "
-          f"{calls['n']} chiamate all'oracolo, 1-minimale]", file=sys.stderr)
+          f"{calls['n']} oracle calls, 1-minimal]", file=sys.stderr)
     return 0
 
 

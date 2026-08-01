@@ -153,9 +153,9 @@ def main() -> int:
                 print("{}")
                 return 0
             repo, hits = charter.constraints_for(fpath, payload.get("cwd"))
-            intro = ("[context-kernel] Il file che stai per modificare e' "
-                     "citato nella CARTA DEL TASK (T3). Vincoli che la "
-                     "modifica deve rispettare:")
+            intro = ("[context-kernel] The file you are about to edit is "
+                     "cited in the TASK CHARTER (T3). Constraints the edit "
+                     "must respect:")
         elif tname == "Bash" and BASH_ENABLED:
             cmd = str(tin.get("command") or "")
             rec0 = charter.get_for_repo(payload.get("cwd") or os.getcwd())
@@ -164,10 +164,10 @@ def main() -> int:
                 return 0
             fpath, hits = bash_hits(cmd, rec0)
             repo = rec0["repo"]
-            intro = ("[context-kernel] Il comando Bash che stai per eseguire "
-                     "sembra SCRIVERE su un file citato nella CARTA DEL TASK "
-                     f"(T3): {fpath}. La guardia sugli editor qui non ti "
-                     "coprirebbe. Vincoli da rispettare:")
+            intro = ("[context-kernel] The Bash command you are about to run "
+                     "appears to WRITE to a file cited in the TASK CHARTER "
+                     f"(T3): {fpath}. The editor guard would not cover you "
+                     "here. Constraints to respect:")
         else:
             print("{}")
             return 0
@@ -184,17 +184,17 @@ def main() -> int:
         vincoli = "\n".join(f"- {h['vincolo']}" for h in hits[:MAX_VINCOLI])
         extra = len(hits) - MAX_VINCOLI
         if extra > 0:
-            vincoli += f"\n- … altri {extra} vincoli (charter.py get)"
+            vincoli += f"\n- … {extra} more constraints (charter.py get)"
         ctx = (f"{intro}\n{vincoli}\n"
-               "Dopo il fix ripassa la carta vincolo per vincolo "
-               "(kernel-verifier), o rileggila con: python3 "
+               "After the fix, walk the charter constraint by constraint "
+               "(kernel-verifier), or read it again with: python3 "
                f"\"{os.path.abspath(charter.__file__)}\" get --repo {repo}")
         print(json.dumps({"hookSpecificOutput": {
             "hookEventName": "PreToolUse",
             "additionalContext": ctx,
         }}))
         remember(session, fpath, cts)
-        print(f"context-kernel[guard]: {len(hits)} vincoli per {fpath}",
+        print(f"context-kernel[guard]: {len(hits)} constraints for {fpath}",
               file=sys.stderr)
         return 0
     except Exception:                          # noqa: BLE001

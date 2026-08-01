@@ -24,9 +24,9 @@ Ambiente:
     CK_AB_TIMEOUT  timeout per giudizio in secondi (default 180)
 
 Contratto col giudice: l'ULTIMA riga della sua risposta deve essere
-    VERDETTO: INVARIANTE
+    VERDICT: INVARIANT
 oppure
-    VERDETTO: DEGRADATO — <i segnali persi>
+    VERDICT: DEGRADED — <i segnali persi>
 Risposte non parsabili lasciano il campione in attesa (max 3 tentativi).
 """
 from __future__ import annotations
@@ -56,30 +56,30 @@ MODEL = os.environ.get("CK_AB_MODEL", "")
 TIMEOUT_S = int(os.environ.get("CK_AB_TIMEOUT", "180"))
 MAX_ATTEMPTS = 3
 
-VERDICT_OK = "VERDETTO: INVARIANTE"
-VERDICT_BAD = "VERDETTO: DEGRADATO"
+VERDICT_OK = "VERDICT: INVARIANT"
+VERDICT_BAD = "VERDICT: DEGRADED"
 
 PROMPT = """\
-Sei un giudice di answer-invariance (T4 della pipeline context-kernel).
-Sotto trovi l'ORIGINALE di un output di tool ({tool}) e la versione COMPRESSA
-che e' entrata al suo posto nel contesto di un agente di coding.
+You are an answer-invariance judge (T4 of the context-kernel pipeline).
+Below is the ORIGINAL of a tool output ({tool}) and the COMPRESSED version
+that entered a coding agent's context in its place.
 
-Giudica UNA cosa sola: la compressa conserva tutti i segnali su cui l'agente
-potrebbe dover agire? (errori, warning, esiti di test, path, versioni,
-conteggi, nomi di simboli). I marcatori [context-kernel: ...] e [x N] sono
-attesi e legittimi: non sono perdita di segnale. La perdita di righe di puro
-rumore (progress, log ripetitivi, corpo di codice riassunto in firme) e'
-il comportamento voluto: e' DEGRADATO solo se manca un segnale AZIONABILE.
+Judge ONE thing only: does the compressed version preserve every signal the
+agent might have to act on? (errors, warnings, test outcomes, paths, versions,
+counts, symbol names). The [context-kernel: ...] and [x N] markers are
+expected and legitimate: they are not signal loss. Losing lines of pure noise
+(progress, repetitive logs, code bodies summarised into signatures) is the
+intended behaviour: it is DEGRADED only if an ACTIONABLE signal is missing.
 
-Rispondi in massimo 6 righe. L'ULTIMA riga deve essere esattamente:
-VERDETTO: INVARIANTE
-oppure:
-VERDETTO: DEGRADATO — <i segnali persi, brevi>
+Answer in at most 6 lines. The LAST line must be exactly:
+VERDICT: INVARIANT
+or:
+VERDICT: DEGRADED — <the lost signals, briefly>
 
-=== ORIGINALE ===
+=== ORIGINAL ===
 {original}
 
-=== COMPRESSA ===
+=== COMPRESSED ===
 {compressed}
 """
 
@@ -120,7 +120,7 @@ def _sample_label(s: dict) -> str:
     ts = s.get("ts")
     when = (datetime.datetime.fromtimestamp(ts).isoformat(timespec="seconds")
             if ts else "?")
-    return f"{s.get('tool', '?')} {where} ({when}, sessione {s.get('session', '?')})"
+    return f"{s.get('tool', '?')} {where} ({when}, session {s.get('session', '?')})"
 
 
 def _judge(prompt: str) -> str | None:
@@ -139,15 +139,15 @@ def _judge(prompt: str) -> str | None:
                               encoding="utf-8", errors="replace",
                               env={**os.environ, "PYTHONIOENCODING": "utf-8"})
     except FileNotFoundError:
-        print(f"Giudice non trovato: `{CLAUDE_BIN}`. Imposta CK_AB_CLAUDE "
-              "o installa Claude Code.", file=sys.stderr)
+        print(f"Judge not found: `{CLAUDE_BIN}`. Set CK_AB_CLAUDE "
+              "or install Claude Code.", file=sys.stderr)
         return None
     except subprocess.TimeoutExpired:
-        print(f"Giudizio scaduto dopo {TIMEOUT_S}s.", file=sys.stderr)
+        print(f"Judging timed out after {TIMEOUT_S}s.", file=sys.stderr)
         return None
     if proc.returncode != 0:
         err = (proc.stderr or "").strip().split("\n")[-1:]
-        print(f"Giudice uscito con {proc.returncode}: {' '.join(err)}",
+        print(f"Judge exited with {proc.returncode}: {' '.join(err)}",
               file=sys.stderr)
         return None
     return proc.stdout
@@ -176,21 +176,21 @@ def print_cron() -> int:
             + (f' CK_AB_MODEL="{MODEL}"' if MODEL else "")
             + f' "{sys.executable}" "{me}" --limit 5'
             f' >> "$HOME/.context-kernel-ab-cron.log" 2>&1')
-    print("Riga per `crontab -e` (giudizio A/B quotidiano alle 09:30, "
-          "max 5 campioni, log in ~/.context-kernel-ab-cron.log):\n")
+    print("Line for `crontab -e` (daily A/B judging at 09:30, "
+          "max 5 samples, log in ~/.context-kernel-ab-cron.log):\n")
     print(line)
-    print("\nRicorda: ab_verify.py e' l'unico comando del plugin che MANDA "
-          "contenuti a un modello (README §11). Installa il cron solo se "
-          "questo ti sta bene; in alternativa il brief di SessionStart "
-          "ricorda i campioni in attesa a ogni nuova sessione.")
+    print("\nReminder: ab_verify.py is the only command in the plugin that SENDS "
+          "content to a model (README §11). Install the cron job only if "
+          "you are comfortable with that; otherwise the SessionStart brief "
+          "reminds you of pending samples at the start of every session.")
     return 0
 
 
 def status(st: dict) -> str:
     pend = len(st.get("pending", []))
-    return (f"A/B invariance: {st.get('ok', 0)} invarianti, "
-            f"{st.get('degraded', 0)} degradate, {pend} campioni in attesa "
-            f"(campionate {st.get('counter', 0)} elisioni)")
+    return (f"A/B invariance: {st.get('ok', 0)} invariant, "
+            f"{st.get('degraded', 0)} degraded, {pend} samples pending "
+            f"({st.get('counter', 0)} elisions sampled)")
 
 
 def main() -> int:
@@ -203,7 +203,7 @@ def main() -> int:
         try:
             limit = int(argv[argv.index("--limit") + 1])
         except (IndexError, ValueError):
-            print("--limit vuole un intero.", file=sys.stderr)
+            print("--limit expects an integer.", file=sys.stderr)
             return 2
 
     st = _load()
@@ -211,11 +211,11 @@ def main() -> int:
         print(status(st))
         return 0
     if not st["pending"]:
-        print(f"Nessun campione in attesa. {status(st)}")
+        print(f"No samples pending. {status(st)}")
         return 0
 
     todo = st["pending"] if limit is None else st["pending"][:limit]
-    print(f"{len(todo)} campioni da giudicare (giudice: {CLAUDE_BIN}"
+    print(f"{len(todo)} samples to judge (judge: {CLAUDE_BIN}"
           f"{' --model ' + MODEL if MODEL else ''})\n")
 
     judged_any = False
@@ -227,12 +227,12 @@ def main() -> int:
         original = _unpack(s.get("orig_z", ""))
         compressed = _unpack(s.get("comp_z", ""))
         if not original or not compressed:
-            print(f"  scartato (campione illeggibile): {_sample_label(s)}")
+            print(f"  discarded (unreadable sample): {_sample_label(s)}")
             continue
         prompt = PROMPT.format(tool=s.get("tool", "?"),
                                original=original, compressed=compressed)
         if dry:
-            print(f"--- prompt per {_sample_label(s)} ---")
+            print(f"--- prompt for {_sample_label(s)} ---")
             print(prompt)
             still.append(s)
             continue
@@ -241,11 +241,11 @@ def main() -> int:
         if verdict is None:
             s["attempts"] = s.get("attempts", 0) + 1
             if s["attempts"] >= MAX_ATTEMPTS:
-                print(f"  scartato dopo {MAX_ATTEMPTS} tentativi: "
+                print(f"  discarded after {MAX_ATTEMPTS} attempts: "
                       f"{_sample_label(s)}")
             else:
                 still.append(s)
-                print(f"  rimandato (risposta non parsabile, tentativo "
+                print(f"  deferred (unparsable answer, attempt "
                       f"{s['attempts']}): {_sample_label(s)}")
             continue
         judged_any = True
@@ -253,16 +253,16 @@ def main() -> int:
         iso = datetime.datetime.now().isoformat(timespec="seconds")
         if kind == "ok":
             st["ok"] = st.get("ok", 0) + 1
-            print(f"  ✓ INVARIANTE  {_sample_label(s)}")
+            print(f"  ✓ INVARIANT  {_sample_label(s)}")
         else:
             st["degraded"] = st.get("degraded", 0) + 1
             st["degradations"] = (st.get("degradations", []) + [{
                 "ts": iso, "tool": s.get("tool"), "file": s.get("file"),
                 "session": s.get("session"), "missing": detail,
             }])[-20:]
-            print(f"  ⚠ DEGRADATO   {_sample_label(s)}")
+            print(f"  ⚠ DEGRADED   {_sample_label(s)}")
             if detail:
-                print(f"                persi: {detail}")
+                print(f"                lost: {detail}")
         st["last_run"] = iso
 
     st["pending"] = still
@@ -270,9 +270,9 @@ def main() -> int:
         _save(st)
         print(f"\n{status(st)}")
         if judged_any and st.get("degraded"):
-            print("Le degradazioni (ultime 20) sono in "
-                  f"{AB_STATE} -> 'degradations': usale per tarare "
-                  "le euristiche di compress.py.")
+            print("The degradations (last 20) are in "
+                  f"{AB_STATE} -> 'degradations': use them to tune "
+                  "the heuristics in compress.py.")
     return 0
 
 

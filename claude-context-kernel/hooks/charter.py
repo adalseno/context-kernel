@@ -121,7 +121,7 @@ def refresh_charter(repo: str) -> list[str]:
     mai indovinata) / senza ancora (carta pre-ancore: rigenerarla)."""
     rec = get_for_repo(repo)
     if not rec:
-        return ["nessuna carta attiva per questo repo"]
+        return ["no active charter for this repo"]
     st = load_state()
     root = rec["repo"]
     files, text = st[root]["files"], st[root]["text"]
@@ -132,13 +132,13 @@ def refresh_charter(repo: str) -> list[str]:
                       encoding="utf-8", errors="replace") as f:
                 lines = [l.strip() for l in f.read().split("\n")]
         except OSError:
-            report.append(f"IRRISOLVIBILE  {path}: file non leggibile")
+            report.append(f"UNRESOLVABLE   {path}: file not readable")
             continue
         for e in entries:
             cite, anchor = f"{path}:{e['line']}", e.get("anchor")
             if not anchor:
-                report.append(f"SENZA ANCORA   {cite}: carta salvata prima "
-                              "delle ancore — rigenerare la carta")
+                report.append(f"NO ANCHOR      {cite}: charter saved before "
+                              "anchors existed — regenerate the charter")
                 continue
             if 1 <= e["line"] <= len(lines) and lines[e["line"] - 1] == anchor:
                 report.append(f"OK             {cite}")
@@ -156,12 +156,12 @@ def refresh_charter(repo: str) -> list[str]:
                     for e2 in entries2:
                         e2["vincolo"] = e2["vincolo"].replace(old_cite, new_cite)
                 e["line"] = new
-                report.append(f"RI-ANCORATA    {cite} -> :{new}")
+                report.append(f"RE-ANCHORED    {cite} -> :{new}")
             else:
                 # zero o ambigua: dichiarare, mai indovinare (stessa regola
                 # della risoluzione FQCN: suffisso ambiguo -> None)
-                report.append(f"IRRISOLVIBILE  {cite}: ancora trovata "
-                              f"{len(hits)} volte")
+                report.append(f"UNRESOLVABLE   {cite}: anchor found "
+                              f"{len(hits)} times")
     st[root]["text"] = text
     st[root]["ts"] = time.time()
     save_state(st)
@@ -218,8 +218,8 @@ def main() -> int:
             save_charter(repo, sys.stdin.read())
             rec = get_for_repo(repo)
             n = sum(len(v) for v in (rec or {}).get("files", {}).values())
-            print(f"carta salvata per {os.path.abspath(repo)}: "
-                  f"{n} vincoli indicizzati (citazioni file:riga)")
+            print(f"charter saved for {os.path.abspath(repo)}: "
+                  f"{n} constraints indexed (file:line citations)")
         elif cmd == "get":
             rec = get_for_repo(repo) or latest()
             if rec:

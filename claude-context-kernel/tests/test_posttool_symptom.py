@@ -82,7 +82,7 @@ class TestPosttoolSymptom(unittest.TestCase):
         hso = out["hookSpecificOutput"]
         self.assertEqual(hso["hookEventName"], "PostToolUse")
         ctx = hso["additionalContext"]
-        self.assertIn("Fallimento rilevato", ctx)
+        self.assertIn("Failure detected", ctx)
         self.assertIn("## seed", ctx)
         self.assertIn("app.py", ctx)
 

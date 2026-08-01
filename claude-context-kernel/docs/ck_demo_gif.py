@@ -61,7 +61,7 @@ def _seg_color(line: str):
                        ("[--]", DIM)):
         if stripped.startswith(token):
             return [(indent + token, col), (stripped[len(token):], FG)]
-    if stripped.startswith("VERDETTO"):
+    if stripped.startswith("VERDICT"):
         return [(line, GREEN)]
     if stripped.startswith("→"):             # freccia routing
         return [(line, CYAN)]
@@ -100,19 +100,19 @@ DOOR1 = [
     "context-kernel — doctor",
     "========================================",
     "  [ok]   Python 3.10.7",
-    "  [ok]   hook registrati (hooks.json)",
-    "  [ok]   script core presenti (6)",
-    "  [ok]   comandi /ck-* presenti (8)",
-    "  [ok]   linguaggio naturale (kernel-ops)",
-    "  [ok]   canary verde",
-    "  [ok]   A/B: coda vuota",
-    "  VERDETTO: tutto a posto ✓",
+    "  [ok]   hooks registered (hooks.json)",
+    "  [ok]   core scripts present (6)",
+    "  [ok]   /ck-* commands present (8)",
+    "  [ok]   natural language (kernel-ops)",
+    "  [ok]   canary green",
+    "  [ok]   A/B: queue empty",
+    "  VERDICT: all clear ✓",
 ]
 DOOR2 = [
     "  → kernel-ops: savings + canary + A/B",
     "  saved 1,214,963 tokens (−61%)",
-    "  1358 compressioni · canary verde",
-    "  coda A/B vuota",
+    "  1358 compressions · canary green",
+    "  A/B queue empty",
 ]
 
 frames: list[Image.Image] = []

@@ -38,7 +38,7 @@ class TestSavings(unittest.TestCase):
         finally:
             os.unlink(log)
 
-        self.assertIn("compressioni:      2", out)   # la malformata non conta
+        self.assertIn("compressions:      2", out)   # la malformata non conta
         self.assertIn("1,500", out)                  # before totale
         self.assertIn("1,150", out)                  # risparmiati
         self.assertIn("Bash", out)
@@ -86,9 +86,9 @@ class TestSavings(unittest.TestCase):
         out = proc.stdout
         self.assertIn("Fable 5", out)
         self.assertIn("mio-progetto", out)
-        self.assertIn("-12.0k sessione", out)       # 9000+3000, solo abcd1234
-        self.assertIn("-20.0k totale", out)          # tutte le righe
-        self.assertIn("totale (-83%)", out)          # 20000 elisi su 24000 before
+        self.assertIn("-12.0k session", out)       # 9000+3000, solo abcd1234
+        self.assertIn("-20.0k total", out)          # tutte le righe
+        self.assertIn("total (-83%)", out)          # 20000 elisi su 24000 before
         self.assertNotIn("su ctx", out)              # senza tracker niente % sessione
         self.assertEqual(len(proc.stdout.strip().split("\n")), 1)
 
@@ -107,7 +107,7 @@ class TestSavings(unittest.TestCase):
         finally:
             for p in (log, ctx):
                 os.unlink(p)
-        self.assertIn("-12.0k sessione (-30% su ctx ~40.0k)", proc.stdout)
+        self.assertIn("-12.0k session (-30% of ctx ~40.0k)", proc.stdout)
         self.assertEqual(len(proc.stdout.strip().split("\n")), 1)
 
     def test_statusline_pct_omitted_when_session_empty(self):
@@ -124,7 +124,7 @@ class TestSavings(unittest.TestCase):
         finally:
             for p in (log, ctx):
                 os.unlink(p)
-        self.assertIn("-0 sessione · -20.0k totale (-83%)", proc.stdout)
+        self.assertIn("-0 session · -20.0k total (-83%)", proc.stdout)
 
     def test_statusline_shows_pending_ab_and_canary_alarm(self):
         log = self._statusline_log()
@@ -145,7 +145,7 @@ class TestSavings(unittest.TestCase):
             # slim: il canary (ALLARME) resta, il contatore A/B (diagnostica) no
             self.assertIn("⚠ canary", slim.stdout)
             self.assertNotIn("A/B", slim.stdout)
-            self.assertIn("A/B: 2 in attesa", proc.stdout)
+            self.assertIn("A/B: 2 pending", proc.stdout)
             self.assertIn("⚠ canary", proc.stdout)
         finally:
             for p in (log, ab, canary):
@@ -213,7 +213,7 @@ class TestSavings(unittest.TestCase):
         self.assertIn("-20.0k", html)              # totale risparmiato
         self.assertIn("Bash", html)
         self.assertIn("abcd1234", html)            # per-sessione
-        self.assertIn("Tabella", html)             # vista accessibile
+        self.assertIn("Table", html)             # vista accessibile
         self.assertNotIn("NaN", html)
 
     def test_html_report_empty_log_never_fatal(self):
@@ -230,7 +230,7 @@ class TestSavings(unittest.TestCase):
 
     def test_missing_log_is_friendly(self):
         out = _run("/percorso/che/non/esiste.csv").stdout
-        self.assertIn("Nessun log ancora", out)
+        self.assertIn("No log yet", out)
 
     def test_empty_log_is_friendly(self):
         fd, log = tempfile.mkstemp(suffix=".csv")
@@ -239,7 +239,7 @@ class TestSavings(unittest.TestCase):
             out = _run(log).stdout
         finally:
             os.unlink(log)
-        self.assertIn("Log presente ma vuoto", out)
+        self.assertIn("Log present but empty", out)
 
 
 if __name__ == "__main__":

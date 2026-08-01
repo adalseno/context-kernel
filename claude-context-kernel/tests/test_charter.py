@@ -86,7 +86,7 @@ class TestCharter(_Base):
         os.makedirs(repo2)
         proc = _util.run_script(_util.CHARTER, carta, env=self.env,
                                 args=["save", "--repo", repo2])
-        self.assertIn("0 vincoli indicizzati", proc.stdout)
+        self.assertIn("0 constraints indexed", proc.stdout)
 
 
 class TestCharterGuard(_Base):
@@ -96,7 +96,7 @@ class TestCharterGuard(_Base):
         out = _util.hook_json(_util.run_hook(
             _util.GUARD, self._edit_payload(fpath), env=self.env))
         ctx = out["hookSpecificOutput"]["additionalContext"]
-        self.assertIn("CARTA DEL TASK", ctx)
+        self.assertIn("TASK CHARTER", ctx)
         self.assertIn("TypeError sui misti", ctx)
         self.assertIn("pool non e' mai None", ctx)     # entrambi i vincoli
         self.assertNotIn("ritorna un int", ctx)        # vincolo di ALTRO file
@@ -165,7 +165,7 @@ class TestCharterGuardBash(_Base):
     def test_sed_i_on_cited_file_injects(self):
         out = self._run("sed -i '' 's/a/b/' pkg/calc.py")
         ctx = out["hookSpecificOutput"]["additionalContext"]
-        self.assertIn("comando Bash", ctx)
+        self.assertIn("Bash command", ctx)
         self.assertIn("TypeError sui misti", ctx)
         self.assertNotIn("ritorna un int", ctx)        # vincolo di ALTRO file
 
@@ -176,7 +176,7 @@ class TestCharterGuardBash(_Base):
 
     def test_git_checkout_on_cited_file_injects(self):
         out = self._run("git checkout -- pkg/calc.py")
-        self.assertIn("CARTA DEL TASK",
+        self.assertIn("TASK CHARTER",
                       out["hookSpecificOutput"]["additionalContext"])
 
     def test_readonly_command_is_noop(self):
@@ -272,14 +272,14 @@ class TestRefresh(unittest.TestCase):
     def test_unchanged_citations_report_ok(self):
         out = self._refresh()
         self.assertEqual(out.count("OK "), 3, out)
-        self.assertNotIn("RI-ANCORATA", out)
+        self.assertNotIn("RE-ANCHORED", out)
 
     def test_shifted_file_is_reanchored_in_state_and_text(self):
         with open(self.calc, "w", encoding="utf-8") as f:
             f.write("# uno\n# due\n# tre\ndef add(a, b):\nPOOL = object()\n")
         out = self._refresh()
-        self.assertIn("RI-ANCORATA    pkg/calc.py:1 -> :4", out)
-        self.assertIn("RI-ANCORATA    pkg/calc.py:2 -> :5", out)
+        self.assertIn("RE-ANCHORED    pkg/calc.py:1 -> :4", out)
+        self.assertIn("RE-ANCHORED    pkg/calc.py:2 -> :5", out)
         self.assertEqual({e["line"] for e in self._entries("pkg/calc.py")},
                          {4, 5})
         got = _util.run_script(_util.CHARTER, "", env=self.env,
@@ -294,14 +294,14 @@ class TestRefresh(unittest.TestCase):
                   encoding="utf-8") as f:          # la riga citata non matcha
             f.write("# uno\n# due\n# tre\ndef main():\ndef main():\n")
         out = self._refresh()
-        self.assertIn("IRRISOLVIBILE  app.py:3: ancora trovata 2 volte", out)
+        self.assertIn("UNRESOLVABLE   app.py:3: anchor found 2 times", out)
         self.assertEqual(self._entries("app.py")[0]["line"], 3)  # non tocca
 
     def test_vanished_anchor_is_declared(self):
         with open(self.calc, "w", encoding="utf-8") as f:
             f.write("def somma(a, b):\nPOOL = object()\n")  # riga 1 sparita
         out = self._refresh()
-        self.assertIn("IRRISOLVIBILE  pkg/calc.py:1: ancora trovata 0 volte",
+        self.assertIn("UNRESOLVABLE   pkg/calc.py:1: anchor found 0 times",
                       out)
         self.assertEqual({e["line"] for e in self._entries("pkg/calc.py")},
                          {1, 2})                   # linee mai indovinate
@@ -318,7 +318,7 @@ class TestRefresh(unittest.TestCase):
         with open(self.calc, "w", encoding="utf-8") as f:
             f.write("# uno\n# due\n# tre\ndef add(a, b):\nPOOL = object()\n")
         out = self._refresh()
-        self.assertIn("RI-ANCORATA    pkg/calc.py:1 -> :4", out)
+        self.assertIn("RE-ANCHORED    pkg/calc.py:1 -> :4", out)
         for e in self._entries("app.py"):          # la gemella sotto app.py
             self.assertIn("(pkg/calc.py:4)", e["vincolo"])
             self.assertNotIn("(pkg/calc.py:1)", e["vincolo"])
@@ -332,8 +332,8 @@ class TestRefresh(unittest.TestCase):
         with open(self.state, "w", encoding="utf-8") as f:
             json.dump(st, f)
         out = self._refresh()
-        self.assertEqual(out.count("SENZA ANCORA"), 3, out)
-        self.assertIn("rigenerare la carta", out)
+        self.assertEqual(out.count("NO ANCHOR"), 3, out)
+        self.assertIn("regenerate the charter", out)
 
 
 if __name__ == "__main__":

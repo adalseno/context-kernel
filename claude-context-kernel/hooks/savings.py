@@ -72,8 +72,8 @@ def read_faults() -> tuple[int, int, dict, dict]:
     return n, tok, per_kind, per_bucket
 
 
-_FAULT_LABEL = {"reread": "riletture integrali", "recmd": "riesecuzioni",
-                "recall": "recall mirati"}
+_FAULT_LABEL = {"reread": "full re-reads", "recmd": "re-runs",
+                "recall": "targeted recalls"}
 
 
 def fault_status(saved_total: int = 0) -> str | None:
@@ -85,13 +85,13 @@ def fault_status(saved_total: int = 0) -> str | None:
     n, tok, per_kind, _ = read_faults()
     if not n:
         return None
-    frac = (f" = {tok / saved_total:.1%} del risparmiato rientrato"
+    frac = (f" = {tok / saved_total:.1%} of the savings clawed back"
             if saved_total > 0 else "")
-    lines = [f"  page fault (distorsione): {n} recuperi, "
-             f"~{tok:,} token rientrati{frac}"]
+    lines = [f"  page faults (distortion): {n} recoveries, "
+             f"~{tok:,} tokens clawed back{frac}"]
     for kind, (t, c) in sorted(per_kind.items(), key=lambda x: -x[1][0]):
         lines.append(f"    {_FAULT_LABEL.get(kind, kind):22s} "
-                     f"{c:4d}x   ~{t:,} token")
+                     f"{c:4d}x   ~{t:,} tokens")
     return "\n".join(lines)
 
 
@@ -103,11 +103,11 @@ def reset_canary() -> int:
         with open(CANARY_STATE, encoding="utf-8") as f:
             st = json.load(f)
     except Exception:                          # noqa: BLE001
-        print("Nessuno stato canary da resettare.")
+        print("No canary state to reset.")
         return 0
     fl = st.get("failed", 0)
     if not fl:
-        print("Nessun fallimento attivo: niente da riconoscere.")
+        print("No active failures: nothing to acknowledge.")
         return 0
     st["failed_acked"] = st.get("failed_acked", 0) + fl
     st["failed"] = 0
@@ -119,9 +119,9 @@ def reset_canary() -> int:
     st["probe"] = {}                           # niente degradate -> niente sonde
     with open(CANARY_STATE, "w", encoding="utf-8") as f:
         json.dump(st, f)
-    deg = f" Sbloccate {ndeg} sessioni in auto-degrade." if ndeg else ""
-    print(f"Riconosciuti {fl} fallimenti canary (storico: {st['failed_acked']}).{deg} "
-          "L'allarme si riaccendera' solo su fallimenti NUOVI.")
+    deg = f" Unblocked {ndeg} auto-degraded sessions." if ndeg else ""
+    print(f"Acknowledged {fl} canary failures (historical: {st['failed_acked']}).{deg} "
+          "The alarm will fire again only on NEW failures.")
     return 0
 
 
@@ -140,34 +140,34 @@ def canary_status() -> str | None:
     pend = len(st.get("pending", []))
     hist_parts = []
     if acked:
-        hist_parts.append(f"{acked} storici riconosciuti")
+        hist_parts.append(f"{acked} historical, acknowledged")
     if auto:
-        hist_parts.append(f"{auto} auto-riconosciuti su evidenza")
+        hist_parts.append(f"{auto} auto-acknowledged on evidence")
     hist = f" ({', '.join(hist_parts)})" if hist_parts else ""
     ndeg = len(st.get("degraded_sessions", []))
     probe_k = int(os.environ.get("CK_CANARY_PROBE_K", "10"))
-    sonda = (f"; sonda di ripristino attiva (1 ogni {probe_k} output)"
+    sonda = (f"; recovery probe active (1 every {probe_k} outputs)"
              if os.environ.get("CK_CANARY_AUTOHEAL", "1") != "0" and probe_k > 0
              else "")
-    deg = (f"\n          AUTO-DEGRADE: {ndeg} sessioni passate a raw pass-through "
-           f"(compressione sospesa dopo troppe violazioni){sonda}") if ndeg else ""
+    deg = (f"\n          AUTO-DEGRADE: {ndeg} sessions switched to raw pass-through "
+           f"(compression suspended after too many violations){sonda}") if ndeg else ""
     if fl:
         sessions = {f.get("session", "?") for f in st.get("failures", [])}
-        where = f" [sessioni: {', '.join(sorted(sessions))}]" if sessions else ""
+        where = f" [sessions: {', '.join(sorted(sessions))}]" if sessions else ""
         heal_m = int(os.environ.get("CK_CANARY_HEAL_M", "5"))
         streak = st.get("heal_streak", 0)
-        heal = (f"\n          auto-heal: {streak} verificate consecutive "
-                f"dall'ultimo failure (auto-ack a {heal_m})"
+        heal = (f"\n          auto-heal: {streak} consecutive verified "
+                f"since the last failure (auto-ack at {heal_m})"
                 if os.environ.get("CK_CANARY_AUTOHEAL", "1") != "0" else "")
-        return (f"  CANARY: ⚠ {fl} compressioni NON applicate dall'harness "
-                f"(ultima: {st.get('last_failure')}){where} — risparmi sovrastimati!\n"
-                f"          {v} verificate ok, {pend} in attesa{hist}{deg}{heal}\n"
-                f"          (indaga, poi: python3 savings.py --reset-canary)")
+        return (f"  CANARY: ⚠ {fl} compressions NOT applied by the harness "
+                f"(last: {st.get('last_failure')}){where} — savings overstated!\n"
+                f"          {v} verified ok, {pend} pending{hist}{deg}{heal}\n"
+                f"          (investigate, then: python3 savings.py --reset-canary)")
     if v:
-        return (f"  canary: ✓ {v} compressioni verificate applicate nel transcript "
-                f"(ultima: {st.get('last_ok')}), {pend} in attesa{hist}")
+        return (f"  canary: ✓ {v} compressions verified as applied in the transcript "
+                f"(last: {st.get('last_ok')}), {pend} pending{hist}")
     if pend:
-        return f"  canary: {pend} compressioni in attesa di verifica{hist}"
+        return f"  canary: {pend} compressions awaiting verification{hist}"
     return None
 
 
@@ -184,12 +184,12 @@ def ab_status() -> str | None:
     pend = len(st.get("pending", []))
     if not (ok or deg or pend):
         return None
-    line = f"  A/B invariance: {ok} invarianti, {deg} degradate"
+    line = f"  A/B invariance: {ok} invariant, {deg} degraded"
     if deg:
-        line = f"  A/B invariance: ⚠ {deg} degradate su {ok + deg} giudicate"
+        line = f"  A/B invariance: ⚠ {deg} degraded out of {ok + deg} judged"
     if pend:
-        line += (f", {pend} campioni in attesa "
-                 f"(giudica: python3 hooks/ab_verify.py)")
+        line += (f", {pend} samples pending "
+                 f"(judge them: python3 hooks/ab_verify.py)")
     return line
 
 
@@ -260,7 +260,7 @@ def statusline() -> int:
     # CK_STATUSLINE_VERBOSE=1. L'allarme canary invece resta SEMPRE: e' un
     # allarme, non un contatore.
     verbose = os.environ.get("CK_STATUSLINE_VERBOSE", "0") == "1"
-    core = f"-{_fmt_k(mine)} sessione" if verbose else f"-{_fmt_k(mine)}"
+    core = f"-{_fmt_k(mine)} session" if verbose else f"-{_fmt_k(mine)}"
     if verbose:
         # "-N sessione" da solo non dice quanto pesa: rapportarlo al contesto
         # che ci SAREBBE stato senza compressione (ctx attuale + risparmiato,
@@ -272,10 +272,10 @@ def statusline() -> int:
                     (json.load(f).get(sess) or {}).get("context_tokens") or 0)
             if mine and ctx:
                 would_be = ctx + mine
-                core += f" (-{mine / would_be:.0%} su ctx ~{_fmt_k(would_be)})"
+                core += f" (-{mine / would_be:.0%} of ctx ~{_fmt_k(would_be)})"
         except Exception:                      # noqa: BLE001
             pass
-        core += f" · -{_fmt_k(tot)} totale"
+        core += f" · -{_fmt_k(tot)} total"
         if tot and tot_before:
             core += f" (-{tot / tot_before:.0%})"
     elif tot and tot_before:
@@ -294,7 +294,7 @@ def statusline() -> int:
             with open(AB_STATE, encoding="utf-8") as f:
                 pend = len(json.load(f).get("pending") or [])
             if pend:
-                seg += f" · {yellow}A/B: {pend} in attesa{reset}"
+                seg += f" · {yellow}A/B: {pend} pending{reset}"
         except Exception:                      # noqa: BLE001
             pass
         # Lato distorsione, in grigio: i fault non sono allarmi (il recupero
@@ -399,7 +399,7 @@ def _svg_cumulative(rows: list[tuple]) -> str:
             continue
         pts.append((t, cum))
     if len(pts) < 2:
-        return "<p class='sub'>(servono almeno 2 compressioni datate)</p>"
+        return "<p class='sub'>(at least 2 timestamped compressions needed)</p>"
     if len(pts) > 400:                        # tenere leggero l'HTML
         step = len(pts) // 400 + 1
         pts = pts[::step] + [pts[-1]]
@@ -423,7 +423,7 @@ def _svg_cumulative(rows: list[tuple]) -> str:
         f"data-tip='{_dt.fromtimestamp(t).strftime('%d/%m %H:%M')} — "
         f"-{v:,} token'/>" for t, v in pts)
     return (f"<svg viewBox='0 0 {W} {H}' width='100%' role='img' "
-            f"aria-label='curva cumulativa dei token risparmiati'>"
+            f"aria-label='cumulative curve of tokens saved'>"
             + "".join(gy)
             + f"<line class='axis' x1='{PL}' x2='{W-8}' y1='{Y(0):.1f}' y2='{Y(0):.1f}'/>"
             + f"<path class='areaf' d='{area}'/><path class='line' d='{path}'/>"
@@ -438,12 +438,12 @@ def _svg_hbars(items: list[tuple[str, int]], unit: str = "token") -> str:
     """Barre orizzontali di una misura (un solo hue, identita' dalle
     etichette). 4px di arrotondamento solo sul data-end, 2px di gap."""
     if not items:
-        return "<p class='sub'>(nessun dato)</p>"
+        return "<p class='sub'>(no data)</p>"
     vmax = max(v for _, v in items) or 1
     ROW, BAR, PL, W = 26, 16, 150, 800
     H = len(items) * ROW + 6
     parts = [f"<svg viewBox='0 0 {W} {H}' width='100%' role='img' "
-             f"aria-label='barre per {unit}'>"]
+             f"aria-label='bars by {unit}'>"]
     for i, (name, v) in enumerate(items):
         y = i * ROW + 4
         w = max(2, v / vmax * (W - PL - 80))
@@ -504,15 +504,15 @@ def html_report(out_path: str | None = None) -> int:
     canary = _load(CANARY_STATE)
     ab = _load(AB_STATE)
     c_failed = canary.get("failed", 0)
-    c_cls, c_icon, c_txt = ("ok", "✓", f"{canary.get('verified', 0)} verificate")
+    c_cls, c_icon, c_txt = ("ok", "✓", f"{canary.get('verified', 0)} verified")
     if c_failed:
-        c_cls, c_icon, c_txt = ("crit", "✗", f"{c_failed} NON applicate")
+        c_cls, c_icon, c_txt = ("crit", "✗", f"{c_failed} NOT applied")
     ab_deg = ab.get("degraded", 0)
     ab_pend = len(ab.get("pending") or [])
     ab_cls, ab_icon = ("warn", "⚠") if ab_deg else ("ok", "✓")
-    ab_txt = f"{ab.get('ok', 0)} invarianti, {ab_deg} degradate"
+    ab_txt = f"{ab.get('ok', 0)} invariant, {ab_deg} degraded"
     if ab_pend:
-        ab_txt += f", {ab_pend} in attesa"
+        ab_txt += f", {ab_pend} pending"
 
     # lato distorsione: token rientrati via page fault + breakdown per tipo
     f_n, f_tok, f_kind, _f_bucket = read_faults()
@@ -524,26 +524,26 @@ def html_report(out_path: str | None = None) -> int:
         f"<tr><td>{_esc(t)}</td><td>{n:,}</td><td>{v:,}</td></tr>"
         for t, v, n in ((t, v, sum(1 for r in rows if r[1] == t))
                         for t, v in tools))
-    html = f"""<!doctype html><html lang="it"><head><meta charset="utf-8">
+    html = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>context-kernel — risparmio token</title>
+<title>context-kernel — token savings</title>
 <style>{_HTML_CSS}</style></head><body><div class="wrap">
 <h1>context-kernel</h1>
-<p class="sub">{len(rows):,} compressioni · {rows[0][0][:16] if rows else '—'} → {rows[-1][0][:16] if rows else '—'}{f' · di cui {sub_n:,} in subagent (~{sub_saved:,} token)' if sub_n else ''}</p>
+<p class="sub">{len(rows):,} compressions · {rows[0][0][:16] if rows else '—'} → {rows[-1][0][:16] if rows else '—'}{f' · {sub_n:,} of them in subagents (~{sub_saved:,} tokens)' if sub_n else ''}</p>
 <div class="card"><div class="tiles">
-<div class="tile"><div class="v">-{_fmt_k(saved)}</div><div class="l">token risparmiati</div></div>
-<div class="tile"><div class="v">-{pct:.0%}</div><div class="l">degli output toccati</div></div>
-<div class="tile"><div class="v">{len(rows):,}</div><div class="l">compressioni</div></div>
+<div class="tile"><div class="v">-{_fmt_k(saved)}</div><div class="l">tokens saved</div></div>
+<div class="tile"><div class="v">-{pct:.0%}</div><div class="l">of the outputs touched</div></div>
+<div class="tile"><div class="v">{len(rows):,}</div><div class="l">compressions</div></div>
 <div class="tile"><div class="v status {c_cls}"><span class="dot">{c_icon}</span>canary</div><div class="l">{_esc(c_txt)}</div></div>
 <div class="tile"><div class="v status {ab_cls}"><span class="dot">{ab_icon}</span>A/B</div><div class="l">{_esc(ab_txt)}</div></div>
-<div class="tile"><div class="v">{f'-{_fmt_k(f_tok)}' if f_tok else '0'}</div><div class="l">rientrati via fault{f' ({f_pct:.0%} del risparmio)' if f_tok else ''}</div></div>
+<div class="tile"><div class="v">{f'-{_fmt_k(f_tok)}' if f_tok else '0'}</div><div class="l">clawed back via faults{f' ({f_pct:.0%} of the savings)' if f_tok else ''}</div></div>
 </div></div>
-<div class="card"><h2>Risparmio cumulativo</h2>{_svg_cumulative(rows)}</div>
-<div class="card"><h2>Per tool</h2>{_svg_hbars(tools)}</div>
-<div class="card"><h2>Per sessione (top 8)</h2>{_svg_hbars(sessions)}</div>
-<div class="card"><h2>Distorsione — token rientrati via page fault ({f_n})</h2>{_svg_hbars(f_bars) if f_bars else "<p class='sub'>(nessun page fault registrato — nessuna scommessa persa)</p>"}</div>
-<div class="card"><h2>Tabella</h2>
-<table><tr><th>tool</th><th>compressioni</th><th>token risparmiati</th></tr>
+<div class="card"><h2>Cumulative savings</h2>{_svg_cumulative(rows)}</div>
+<div class="card"><h2>By tool</h2>{_svg_hbars(tools)}</div>
+<div class="card"><h2>By session (top 8)</h2>{_svg_hbars(sessions)}</div>
+<div class="card"><h2>Distortion — tokens clawed back via page faults ({f_n})</h2>{_svg_hbars(f_bars) if f_bars else "<p class='sub'>(no page faults recorded — no bet lost)</p>"}</div>
+<div class="card"><h2>Table</h2>
+<table><tr><th>tool</th><th>compressions</th><th>tokens saved</th></tr>
 {table}</table></div>
 <div id="tip" class="tip"></div>
 <script>{_HTML_JS}</script>
@@ -566,7 +566,7 @@ def main() -> int:
     if "--reset-canary" in sys.argv[1:]:
         return reset_canary()
     if not os.path.exists(LOG_PATH):
-        print(f"Nessun log ancora ({LOG_PATH}). Usa il plugin e ritorna qui.")
+        print(f"No log yet ({LOG_PATH}). Use the plugin and come back here.")
         return 0
 
     n = 0
@@ -602,7 +602,7 @@ def main() -> int:
             last = ts
 
     if n == 0:
-        print("Log presente ma vuoto.")
+        print("Log present but empty.")
         return 0
 
     saved = before_tot - after_tot
@@ -610,26 +610,26 @@ def main() -> int:
     # stima costo input Opus 4.8: $5 / 1M token
     dollars = saved / 1_000_000 * 5.0
 
-    print(f"context-kernel — risparmio token  ({first} -> {last})")
+    print(f"context-kernel — token savings  ({first} -> {last})")
     print("=" * 56)
-    print(f"  compressioni:      {n}")
-    print(f"  token in ingresso: {before_tot:,}")
-    print(f"  token dopo:        {after_tot:,}")
-    print(f"  RISPARMIATI:       {saved:,}  (-{pct:.0%})")
-    print(f"  ~costo input evitato (Opus 4.8, prima lettura): ${dollars:.2f}")
-    print(f"  (si somma coi cache-read a ogni turno successivo)")
-    print("\n  per tool:")
+    print(f"  compressions:      {n}")
+    print(f"  tokens in:         {before_tot:,}")
+    print(f"  tokens after:      {after_tot:,}")
+    print(f"  SAVED:             {saved:,}  (-{pct:.0%})")
+    print(f"  ~input cost avoided (Opus 4.8, first read): ${dollars:.2f}")
+    print(f"  (compounds with cache reads on every subsequent turn)")
+    print("\n  by tool:")
     for tool, (b, a, c) in sorted(per_tool.items(), key=lambda x: -(x[1][0] - x[1][1])):
-        print(f"    {tool:10s}  {c:4d}x   -{b - a:,} token")
+        print(f"    {tool:10s}  {c:4d}x   -{b - a:,} tokens")
 
     named = {s: v for s, v in per_session.items() if s != "-"}
     if named:
-        print("\n  per sessione (anche le headless concorrenti scrivono qui):")
+        print("\n  by session (concurrent headless runs write here too):")
         for sess, (sv, c) in sorted(named.items(), key=lambda x: -x[1][0])[:8]:
-            print(f"    {sess:10s}  {c:4d}x   -{sv:,} token")
+            print(f"    {sess:10s}  {c:4d}x   -{sv:,} tokens")
         if per_session.get("-"):
             sv, c = per_session["-"]
-            print(f"    {'(storico)':10s}  {c:4d}x   -{sv:,} token")
+            print(f"    {'(historical)':10s}  {c:4d}x   -{sv:,} tokens")
     status = canary_status()
     if status:
         print()

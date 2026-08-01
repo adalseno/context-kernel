@@ -13,17 +13,17 @@ import _util
 
 MANIFEST = "\n".join([
     "# kernel repo slice — manifest",
-    "operatore: T2@test",
+    "operator: T2@test",
     "repo: /repo",
     "sorgenti scansionati: 100  |  slice: 3 file (-97%)",
     "",
-    "## seed (dal sintomo)",
+    "## seeds (from the symptom)",
     "- app.py  <- citato nel sintomo",
     "",
-    "## file della slice (per rilevanza)",
+    "## slice files (per rilevanza)",
     "- app.py — seed",
-    "- pkg/calc.py — dipendenza a 1 hop (via app.py)",
-    "- test_app.py — test correlato (usa app.py)",
+    "- pkg/calc.py — dependency a 1 hop (via app.py)",
+    "- test_app.py — related test (usa app.py)",
     "",
     "## fuori slice (modello page-fault)",
     "97 sorgenti esclusi dal grafo degli import.",
@@ -52,9 +52,9 @@ class TestRevealed(unittest.TestCase):
                  "text": "[context-kernel] Sintomo rilevato\n" + MANIFEST}]}},
             _tool_use("t1", "Read", {"file_path": "/repo/app.py"}),
             _tool_result("t1", "x" * 100 +
-                         "\n[context-kernel: elise righe 46-90: 40 righe]"
-                         "\n[context-kernel: 500 -> 100 token, -80%] "
-                         "[copia ELISA: per l'integrale rileggi questo "
+                         "\n[context-kernel: elided righe 46-90: 40 righe]"
+                         "\n[context-kernel: 500 -> 100 tokens, -80%] "
+                         "[ELIDED copy: for the full text read this "
                          "stesso file]"),
             _tool_use("t2", "Read", {"file_path": "/repo/app.py"}),
             _tool_result("t2", "y" * 400),
@@ -73,14 +73,14 @@ class TestRevealed(unittest.TestCase):
 
     def test_report_covers_all_signals(self):
         out = self._run(self.transcript).stdout
-        self.assertIn("manifest T2: 3 file", out)
-        self.assertIn("aperti dalla slice: 1/3", out)
+        self.assertIn("T2 manifest: 3 files", out)
+        self.assertIn("opened from the slice: 1/3", out)
         self.assertIn("pkg/calc.py", out)              # mai aperto
         self.assertIn("test_app.py", out)
-        self.assertIn("FUORI slice", out)
+        self.assertIn("OUTSIDE the slice", out)
         self.assertIn("config/extra.py", out)          # seed perso
-        self.assertIn("page fault post-elisione: 1", out)
-        self.assertIn("suggerimento", out)
+        self.assertIn("page faults after elision: 1", out)
+        self.assertIn("-> hint:", out)
 
     def test_fault_cost_measured_from_reread(self):
         r = json.loads(self._run(self.transcript, "--json").stdout)[0]
@@ -91,7 +91,7 @@ class TestRevealed(unittest.TestCase):
 
     def test_directory_argument(self):
         out = self._run(self.tmp).stdout
-        self.assertIn("rilevanza rivelata", out)
+        self.assertIn("revealed relevance", out)
 
     def test_transcript_without_slice(self):
         empty = os.path.join(self.tmp, "vuota.jsonl")
@@ -99,7 +99,7 @@ class TestRevealed(unittest.TestCase):
             f.write(json.dumps(_tool_use("a", "Read",
                                          {"file_path": "/x.py"})) + "\n")
         out = self._run(empty).stdout
-        self.assertIn("nessun manifest T2", out)
+        self.assertIn("no T2 manifest", out)
 
     def test_no_transcript_exits_nonzero(self):
         proc = self._run(os.path.join(self.tmp, "inesistente.jsonl"))
@@ -117,19 +117,19 @@ class TestRevealed(unittest.TestCase):
     def test_aggregate_proposals_on_recurrence(self):
         self._write_second_transcript()
         out = self._run(self.tmp, "--aggregate").stdout
-        self.assertIn("AGGREGATO su 2 transcript", out)
-        self.assertIn("proposta di config", out)
+        self.assertIn("AGGREGATE over 2 transcript", out)
+        self.assertIn("suggested config", out)
         self.assertIn("# ck:raw", out)                 # fault su app.py x2
         self.assertIn("app.py", out)
-        self.assertIn("candidalo ai seed", out)        # extra.py fuori slice x2
+        self.assertIn("propose as a slicer seed", out)        # extra.py fuori slice x2
         self.assertIn("config/extra.py", out)
-        self.assertIn("prior largo", out)              # calc.py mai aperto x2
-        self.assertIn("mai auto-tuning", out)          # l'umano applica
+        self.assertIn("wide prior", out)              # calc.py mai aperto x2
+        self.assertIn("never auto-tunes", out)          # l'umano applica
 
     def test_aggregate_single_occurrence_no_proposal(self):
         out = self._run(self.transcript, "--aggregate").stdout
-        self.assertIn("AGGREGATO su 1 transcript", out)
-        self.assertIn("nessun pattern ricorrente", out)
+        self.assertIn("AGGREGATE over 1 transcript", out)
+        self.assertIn("no recurrent pattern", out)
 
     def test_write_priors_on_recurrence(self):
         self._write_second_transcript()
@@ -137,7 +137,7 @@ class TestRevealed(unittest.TestCase):
         out = _util.run_script(
             _util.REVEALED, "", args=[self.tmp, "--write-priors"],
             env={"CK_PRIORS_STATE": priors}).stdout
-        self.assertIn("prior scritti", out)
+        self.assertIn("priors written", out)
         with open(priors) as f:
             st = json.load(f)
         rec = st[os.path.normpath("/repo")]
@@ -151,7 +151,7 @@ class TestRevealed(unittest.TestCase):
         out = _util.run_script(
             _util.REVEALED, "", args=[self.transcript, "--write-priors"],
             env={"CK_PRIORS_STATE": priors}).stdout
-        self.assertIn("nessun pattern ricorrente", out)
+        self.assertIn("no recurrent pattern", out)
         self.assertFalse(os.path.exists(priors))
 
     def test_aggregate_json(self):

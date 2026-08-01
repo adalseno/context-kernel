@@ -20,9 +20,9 @@ Q: il retry non rispetta il limite
 """
 
 MANIFEST_HEAD = """# kernel repo slice — manifest
-operatore: T2@test
+operator: T2@test
 repo: /repo
-## seed (dal sintomo)
+## seeds (from the symptom)
 - db.py  <- citato nel sintomo"""
 
 
@@ -69,7 +69,7 @@ class TestPrecompact(unittest.TestCase):
         out = _util.hook_json(_util.run_hook(_util.BRIEF, payload,
                                              env=self.env))
         ctx = out["hookSpecificOutput"]["additionalContext"]
-        self.assertIn("TS(Q) sopravvissuto alla compaction", ctx)
+        self.assertIn("TS(Q) survived the compaction", ctx)
         self.assertIn("retry esattamente 3 volte", ctx)
         self.assertIn("## seed", ctx)
 

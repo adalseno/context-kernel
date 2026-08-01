@@ -180,10 +180,11 @@ def main() -> int:
             print("{}")                        # niente seed: meglio tacere
             return 0
         head = "\n".join(out.split("\n")[:_sym.MAX_LINES])
-        ctx = ("[context-kernel] Fallimento rilevato nell'output del comando: "
-               "working set calcolato dallo slicer deterministico (T2). "
-               "Usalo come prior per il debug, non come divieto; per rifarlo "
-               "con altri parametri c'e' la skill kernel-repo-slice.\n" + head)
+        ctx = ("[context-kernel] Failure detected in the command output: "
+               "working set computed by the deterministic slicer (T2). Use it "
+               "as a prior for debugging, not as a prohibition; to recompute "
+               "it with different parameters there is the kernel-repo-slice "
+               "skill.\n" + head)
         print(json.dumps({"hookSpecificOutput": {
             "hookEventName": "PostToolUse",
             "additionalContext": ctx,
@@ -193,7 +194,7 @@ def main() -> int:
         # cambio-task e la compaction devono vedere l'ULTIMO Q, da qualunque
         # lato del turno sia arrivato il sintomo
         _sym.task_remember(_sym.hook_session(payload), cwd, out)
-        print(f"context-kernel[posttool]: slice iniettata da {cwd}",
+        print(f"context-kernel[posttool]: slice injected from {cwd}",
               file=sys.stderr)
         return 0
     except Exception:                          # noqa: BLE001

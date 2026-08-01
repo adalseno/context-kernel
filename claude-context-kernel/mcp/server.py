@@ -40,23 +40,23 @@ PROTO_DEFAULT = "2025-06-18"
 TOOL = {
     "name": "kernel_slice",
     "description": (
-        "Estrae la fetta minimale di un file (Python o Go) rilevante per uno o "
-        "piu' simboli (funzioni/classi/tipi), scartando tutto cio' che non puo' "
-        "influenzarne il comportamento (backward reachability slice sul grafo "
-        "def-use). Python: answer-preserving ESATTO (AST). Go: answer-preserving "
-        "CONSERVATIVO (senza parser, sovra-approssima l'uso -> puo' tenere di "
-        "piu', mai lasciar fuori una dipendenza). Usalo al posto di leggere un "
-        "file grande quando ti interessa solo un simbolo specifico."
+        "Extracts the minimal slice of a file (Python or Go) relevant to one or "
+        "more symbols (functions/classes/types), discarding everything that "
+        "cannot affect their behaviour (backward reachability slice over the "
+        "def-use graph). Python: EXACT answer-preserving (AST). Go: "
+        "CONSERVATIVE answer-preserving (no parser, over-approximates use -> "
+        "may keep more, never leaves out a dependency). Use it instead of "
+        "reading a large file when you only care about one specific symbol."
     ),
     "inputSchema": {
         "type": "object",
         "properties": {
             "file": {"type": "string",
-                     "description": "Percorso del file .py o .go"},
+                     "description": "Path of the .py or .go file"},
             "symbols": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "Nomi dei simboli target (almeno uno)",
+                "description": "Names of the target symbols (at least one)",
             },
         },
         "required": ["file", "symbols"],
@@ -67,25 +67,25 @@ TOOL = {
 TOOL_REPO = {
     "name": "kernel_repo_slice",
     "description": (
-        "Proietta un intero repository sul working set rilevante per un bug: "
-        "dato un sintomo (stack trace, messaggio d'errore, path), costruisce "
-        "il grafo degli import e tiene solo seed + dipendenze transitive + "
-        "importatori vicini + test correlati. Ritorna un manifest ordinato con "
-        "le motivazioni; cio' che e' fuori slice resta recuperabile on demand "
-        "(page fault). Usalo PRIMA di esplorare un repo grande per un bug."
+        "Projects a whole repository onto the working set relevant to a bug: "
+        "given a symptom (stack trace, error message, path), it builds the "
+        "import graph and keeps only seeds + transitive dependencies + nearby "
+        "importers + related tests. Returns an ordered manifest with the "
+        "reasons; whatever falls outside the slice stays recoverable on demand "
+        "(page fault). Use it BEFORE exploring a large repo for a bug."
     ),
     "inputSchema": {
         "type": "object",
         "properties": {
-            "repo": {"type": "string", "description": "Root del repository"},
+            "repo": {"type": "string", "description": "Root of the repository"},
             "symptom": {
                 "type": "string",
-                "description": "Stack trace / messaggio d'errore / descrizione col path",
+                "description": "Stack trace / error message / description with the path",
             },
             "seeds": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "File seed espliciti (opzionale, in aggiunta al sintomo)",
+                "description": "Explicit seed files (optional, in addition to the symptom)",
             },
         },
         "required": ["repo", "symptom"],
@@ -98,9 +98,9 @@ def run_slice(args: dict) -> dict:
     file = args.get("file", "")
     symbols = args.get("symbols") or []
     if not file or not symbols:
-        return _err_content("Servono 'file' e almeno un elemento in 'symbols'.")
+        return _err_content("Need 'file' and at least one element in 'symbols'.")
     if not os.path.exists(file):
-        return _err_content(f"File non trovato: {file}")
+        return _err_content(f"File not found: {file}")
     try:
         out = subprocess.run(
             [sys.executable, SLICE, file, *symbols],
@@ -109,9 +109,9 @@ def run_slice(args: dict) -> dict:
             env={**os.environ, "PYTHONIOENCODING": "utf-8"},
         )
     except Exception as e:                       # noqa: BLE001
-        return _err_content(f"Errore nell'esecuzione dello slicer: {e}")
+        return _err_content(f"Error running the slicer: {e}")
     if out.returncode != 0:
-        return _err_content(out.stderr.strip() or "slicer fallito")
+        return _err_content(out.stderr.strip() or "slicer failed")
     return {"content": [{"type": "text", "text": out.stdout}], "isError": False}
 
 
@@ -120,9 +120,9 @@ def run_repo_slice(args: dict) -> dict:
     symptom = args.get("symptom", "")
     seeds = args.get("seeds") or []
     if not repo or not symptom:
-        return _err_content("Servono 'repo' e 'symptom'.")
+        return _err_content("Need 'repo' and 'symptom'.")
     if not os.path.isdir(repo):
-        return _err_content(f"Repo non trovato: {repo}")
+        return _err_content(f"Repo not found: {repo}")
     cmd = [sys.executable, REPO_SLICE, repo, "--symptom", symptom]
     for s in seeds:
         cmd += ["--seed", s]
@@ -131,9 +131,9 @@ def run_repo_slice(args: dict) -> dict:
                              encoding="utf-8", errors="replace",
                              env={**os.environ, "PYTHONIOENCODING": "utf-8"})
     except Exception as e:                       # noqa: BLE001
-        return _err_content(f"Errore nell'esecuzione del repo slicer: {e}")
+        return _err_content(f"Error running the repo slicer: {e}")
     if out.returncode != 0:
-        return _err_content(out.stderr.strip() or "repo slicer fallito")
+        return _err_content(out.stderr.strip() or "repo slicer failed")
     text = out.stdout
     if out.stderr.strip():                       # es. "nessun seed": va mostrato
         text = out.stderr.strip() + "\n\n" + text
@@ -172,11 +172,11 @@ def handle(req: dict) -> dict | None:
             return _ok(rid, run_slice(params.get("arguments") or {}))
         if name == TOOL_REPO["name"]:
             return _ok(rid, run_repo_slice(params.get("arguments") or {}))
-        return _err(rid, -32602, f"tool sconosciuto: {name}")
+        return _err(rid, -32602, f"unknown tool: {name}")
 
     if rid is None:
         return None  # notifica sconosciuta: ignora
-    return _err(rid, -32601, f"metodo non gestito: {method}")
+    return _err(rid, -32601, f"unhandled method: {method}")
 
 
 def _ok(rid, result: dict) -> dict:

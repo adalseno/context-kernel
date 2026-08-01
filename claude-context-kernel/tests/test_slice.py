@@ -97,7 +97,7 @@ class TestSlice(unittest.TestCase):
         proc = subprocess.run([sys.executable, _util.SLICE],
                               capture_output=True, text=True)
         self.assertEqual(proc.returncode, 2)
-        self.assertIn("uso:", proc.stderr)
+        self.assertIn("usage:", proc.stderr)
 
 
 GO_FIXTURE = '''\

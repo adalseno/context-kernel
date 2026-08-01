@@ -50,7 +50,7 @@ class TestJsonMcp(unittest.TestCase):
         updated = out["hookSpecificOutput"]["updatedToolOutput"]
         self.assertIsInstance(updated, list)          # forma preservata
         body = updated[0]["text"]
-        self.assertIn("elisi 37 di 40 oggetti", body)
+        self.assertIn("dropped 37 of 40 objects", body)
         self.assertIn("id", body)                     # schema delle chiavi
         self.assertIn("utente0", body)                # campioni in testa
         self.assertNotIn("utente39", body)            # coda elisa
@@ -60,7 +60,7 @@ class TestJsonMcp(unittest.TestCase):
         text = json.dumps({"meta": {"count": 40}, "items": _items(40)})
         out = _util.hook_json(self._run(mcp_payload(text)))
         body = out["hookSpecificOutput"]["updatedToolOutput"][0]["text"]
-        self.assertIn("elisi 37 di 40 oggetti", body)
+        self.assertIn("dropped 37 of 40 objects", body)
         self.assertIn('"count": 40', body)            # il resto resta intatto
 
     def test_dict_content_shape_preserved(self):
@@ -68,7 +68,7 @@ class TestJsonMcp(unittest.TestCase):
         out = _util.hook_json(self._run(mcp_payload(text, shape="dict")))
         updated = out["hookSpecificOutput"]["updatedToolOutput"]
         self.assertIsInstance(updated, dict)
-        self.assertIn("elisi 37 di 40", updated["content"][0]["text"])
+        self.assertIn("dropped 37 of 40", updated["content"][0]["text"])
 
     def test_replay_after_elision_passes_integral(self):
         cmds = os.path.join(tempfile.gettempdir(),
@@ -77,7 +77,7 @@ class TestJsonMcp(unittest.TestCase):
             env = {"CK_CMDS_STATE": cmds}
             text = json.dumps(_items(40))
             out1 = _util.hook_json(self._run(mcp_payload(text), env=env))
-            self.assertIn("elisi", str(out1))
+            self.assertIn("dropped", str(out1))
             # stessa chiamata, stesso output: la copia in contesto era ELISA
             # -> page fault, passa integrale (no-op)
             out2 = _util.hook_json(self._run(mcp_payload(text), env=env))
@@ -98,8 +98,8 @@ class TestJsonMcp(unittest.TestCase):
             self.assertEqual(out1, {})                # prima volta: registra
             out2 = _util.hook_json(self._run(mcp_payload(text), env=env))
             body = out2["hookSpecificOutput"]["updatedToolOutput"][0]["text"]
-            self.assertIn("IDENTICO", body)
-            self.assertIn("chiamata MCP", body)
+            self.assertIn("IDENTICAL", body)
+            self.assertIn("MCP call", body)
         finally:
             if os.path.exists(cmds):
                 os.remove(cmds)
@@ -125,7 +125,7 @@ class TestJsonMcp(unittest.TestCase):
         # array di scalari: json_project non scatta (solo array di OGGETTI)
         text = json.dumps({"nums": list(range(2000))})
         parsed = _util.hook_json(self._run(mcp_payload(text)))
-        self.assertNotIn("elisi", str(parsed))
+        self.assertNotIn("dropped", str(parsed))
 
 
 if __name__ == "__main__":

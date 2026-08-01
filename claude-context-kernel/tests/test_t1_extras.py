@@ -50,7 +50,7 @@ class TestCmdDelta(_Base):
         self.assertEqual(_util.hook_json(first), {})   # sotto MIN: intatto
         second = self._bash(self.OUT, "git status")
         upd = _util.hook_json(second)["hookSpecificOutput"]["updatedToolOutput"]
-        self.assertIn("output IDENTICO", upd["stdout"])
+        self.assertIn("output IDENTICAL", upd["stdout"])
         self.assertIn("[context-kernel:", upd["stdout"])  # footer
 
     def test_rerun_after_marker_passes_integral(self):
@@ -75,7 +75,7 @@ class TestCmdDelta(_Base):
                           for i in range(150))
         first = self._bash(noisy, "make build")
         upd = _util.hook_json(first)["hookSpecificOutput"]["updatedToolOutput"]
-        self.assertIn("elise", upd["stdout"])              # eliso davvero
+        self.assertIn("elided", upd["stdout"])              # eliso davvero
         second = self._bash(noisy, "make build")
         self.assertEqual(_util.hook_json(second), {})      # integrale
 
@@ -100,8 +100,8 @@ class TestGrepProjection(_Base):
                              f"{f}-{i} {'y' * 20}")
         proc = self._grep("\n".join(lines))
         upd = _util.hook_json(proc)["hookSpecificOutput"]["updatedToolOutput"]
-        self.assertIn("match oltre il 5o per file", upd)
-        self.assertIn("[+15 altri match in src/modulo_0.py]", upd)
+        self.assertIn("matches beyond the 5th per file", upd)
+        self.assertIn("[+15 more matches in src/modulo_0.py]", upd)
         self.assertIn("src/modulo_9.py:1:", upd)           # nessun file perso
         self.assertNotIn("occorrenza unica 0-7", upd)      # oltre il cap
         self.assertIn("[context-kernel:", upd)             # footer
@@ -132,11 +132,11 @@ class TestOutlineFirst(_Base):
         proc = _util.run_hook(_util.COMPRESS, payload, env=self.env)
         got = _util.hook_json(proc)["hookSpecificOutput"]["updatedToolOutput"]
         content = got["file"]["content"]
-        self.assertIn("proiettato a OUTLINE", content)
-        self.assertIn("def funzione_7(argomento_7):  # righe ", content)
+        self.assertIn("projected to an OUTLINE", content)
+        self.assertIn("def funzione_7(argomento_7):  # lines ", content)
         self.assertIn("import os", content)
         self.assertNotIn("valore_3", content)               # corpi elisi
-        self.assertIn("copia ELISA", proc.stdout)           # page fault attivo
+        self.assertIn("ELIDED copy", proc.stdout)           # page fault attivo
 
     def test_syntax_error_falls_back_to_code_aware(self):
         payload = _util.read_payload(self._giant_py(broken=True),
@@ -145,8 +145,8 @@ class TestOutlineFirst(_Base):
         proc = _util.run_hook(_util.COMPRESS, payload, env=self.env)
         got = _util.hook_json(proc)["hookSpecificOutput"]["updatedToolOutput"]
         content = got["file"]["content"]
-        self.assertNotIn("proiettato a OUTLINE", content)
-        self.assertIn("righe di corpo", content)            # fallback classico
+        self.assertNotIn("projected to an OUTLINE", content)
+        self.assertIn("lines of body", content)            # fallback classico
 
 
 class TestAdaptiveRate(_Base):
@@ -163,7 +163,7 @@ class TestAdaptiveRate(_Base):
         proc = self._read_log("sess-adp1")
         content = _util.hook_json(proc)["hookSpecificOutput"][
             "updatedToolOutput"]["file"]["content"]
-        self.assertIn("righe 46-280:", content)             # HEAD 45 / TAIL 20
+        self.assertIn("lines 46-280:", content)             # HEAD 45 / TAIL 20
 
     def test_high_usage_shrinks_head_tail(self):
         # finestra DICHIARATA via env (fonte 1 di window.py): 190k/200k=95%.
@@ -175,7 +175,7 @@ class TestAdaptiveRate(_Base):
         proc = self._read_log("sess-adp2")
         content = _util.hook_json(proc)["hookSpecificOutput"][
             "updatedToolOutput"]["file"]["content"]
-        self.assertIn("righe 23-290:", content)             # scala 0.5
+        self.assertIn("lines 23-290:", content)             # scala 0.5
 
 
 class TestProseProjection(_Base):
@@ -195,7 +195,7 @@ class TestProseProjection(_Base):
         }
         proc = _util.run_hook(_util.COMPRESS, payload, env=self.env)
         upd = _util.hook_json(proc)["hookSpecificOutput"]["updatedToolOutput"]
-        self.assertIn("righe di link/navigazione", upd["result"])
+        self.assertIn("lines of links/navigation", upd["result"])
         self.assertIn("voce di menu 0", upd["result"])       # le prime 2 restano
         self.assertNotIn("voce di menu 25", upd["result"])
         self.assertIn("Paragrafo di testo vero numero 29", upd["result"])

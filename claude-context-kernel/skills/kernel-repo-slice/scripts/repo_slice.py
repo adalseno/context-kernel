@@ -562,7 +562,7 @@ def _test_ref_edges(root: str, files: list[str]) -> dict[str, set[str]]:
 def find_seeds(root: str, files: list[str], symptom: str,
                explicit: list[str],
                diff: list[str] | None = None,
-               diff_why: str = "file modificato nel diff",
+               diff_why: str = "file changed in the diff",
                ) -> list[tuple[str, str]]:
     """Ritorna [(file, motivo)]. Path dai frame + espliciti + file del diff
     + grep dei letterali."""
@@ -595,14 +595,14 @@ def find_seeds(root: str, files: list[str], symptom: str,
                 return
 
     for e in explicit:
-        match_path(e, "seed esplicito")
+        match_path(e, "explicit seed")
     for e in diff or []:
         match_path(e, diff_why)
     for pat, why in ((PY_FRAME, "frame stack trace"),
                      (JS_FRAME, "frame stack trace"),
                      (PHP_FRAME, "frame stack trace"),
                      (GO_FRAME, "frame stack trace"),
-                     (BARE_PATH, "path nel sintomo")):
+                     (BARE_PATH, "path in the symptom")):
         for m in pat.finditer(symptom):
             match_path(m.group(1), why)
 
@@ -617,7 +617,7 @@ def find_seeds(root: str, files: list[str], symptom: str,
                     continue
                 if lit in open(path, encoding="utf-8", errors="replace").read():
                     seeds.setdefault(rel.replace(os.sep, "/"),
-                                     f'contiene il letterale "{lit[:40]}"')
+                                     f'contains the literal "{lit[:40]}"')
                     hits += 1
                     if hits >= GREP_MAX_HITS:
                         break
@@ -652,7 +652,7 @@ def slice_repo(graph: dict[str, set[str]], seeds: list[str],
         for f in frontier:
             for d in sorted(norm.get(f, ())):
                 if d not in kept:
-                    kept[d] = ("dipendenza", hop, f)
+                    kept[d] = ("dependency", hop, f)
                     nxt.append(d)
         frontier = nxt
 
@@ -662,7 +662,7 @@ def slice_repo(graph: dict[str, set[str]], seeds: list[str],
         for f in frontier:
             for imp in sorted(reverse.get(f, ())):
                 if imp not in kept and not TEST_PAT.search(imp):
-                    kept[imp] = ("importatore", hop, f)   # i test li etichetta lo stadio dopo
+                    kept[imp] = ("importer", hop, f)      # i test li etichetta lo stadio dopo
                     nxt.append(imp)
         frontier = nxt
 
@@ -680,13 +680,13 @@ def slice_repo(graph: dict[str, set[str]], seeds: list[str],
 
 # --- output -----------------------------------------------------------------
 
-ORDER = {"seed": 0, "dipendenza": 1, "importatore": 2, "test": 3}
+ORDER = {"seed": 0, "dependency": 1, "importer": 2, "test": 3}
 # Estremi ancorati (lost-in-the-middle): il modello attende testa e coda, non il
 # mezzo. Ordine SOLO, non selezione: nulla aggiunto/tolto, safe per pi. Il seed
 # resta in testa; l'importatore (il caller — "la causa puo' stare nel caller")
 # sale all'estremo basso; i test (repro, non causa) scendono in mezzo, dove
 # l'attenzione e' minima.
-ORDER_ANCHORED = {"seed": 0, "dipendenza": 1, "test": 2, "importatore": 3}
+ORDER_ANCHORED = {"seed": 0, "dependency": 1, "test": 2, "importer": 3}
 
 
 def render(root: str, scanned: int, seeds: list[tuple[str, str]],
@@ -713,11 +713,11 @@ def render(root: str, scanned: int, seeds: list[tuple[str, str]],
             "excluded": excluded, "truncated": truncated,
             "seeds": [{"path": p, "why": w} for p, w in seeds],
             "files": [{"path": p, "role": r, "hop": h, "via": v,
-                       **({"grafo": "generico"}
+                       **({"graph": "generic"}
                           if os.path.splitext(p)[1] in GENERIC_EXTS else {}),
-                       **({"freddo": cold[p]} if p in cold else {})}
+                       **({"cold": cold[p]} if p in cold else {})}
                       for p, (r, h, v) in rows],
-            "note": "esclusione = prior, non divieto: page fault on demand",
+            "note": "exclusion = prior, not prohibition: page fault on demand",
             **({"symbol_index": {"source": "ctags", "symbols": sym_count}}
                if sym_count else {}),
             **({"coverage_note": cov_note} if cov_note else {}),
@@ -729,89 +729,92 @@ def render(root: str, scanned: int, seeds: list[tuple[str, str]],
             **({"budget": budget_note} if budget_note else {}),
             **({"t2b": {"total_tokens": t2b["total"], "fits": t2b["fits"],
                         "slices": [{"seed": s, "symbols": sy, "tokens": tk,
-                                    "esito": e, "estrai": c}
+                                    "outcome": e, "extract": c}
                                    for s, sy, tk, e, c in t2b["entries"]]}}
                if t2b else {}),
         }, ensure_ascii=False, indent=1)
 
     pct = (1 - len(kept) / scanned) * 100 if scanned else 0.0
     out = ["# kernel repo slice — manifest",
-           f"operatore: T2@{t2_version()}"]
+           f"operator: T2@{t2_version()}"]
     if budget_note:
         out.append(f"budget: {budget_note}")
     out += [
            f"repo: {root}",
-           f"sorgenti scansionati: {scanned}  |  slice: {len(kept)} file (-{pct:.0f}%)"]
+           f"sources scanned: {scanned}  |  slice: {len(kept)} files (-{pct:.0f}%)"]
     gen_exts = sorted({os.path.splitext(p)[1] for p, _ in rows
                        if os.path.splitext(p)[1] in GENERIC_EXTS})
     if gen_exts:
-        promo = (f" — PROMOSSO da indice ctags ({sym_count} simboli univoci): "
-                 "archi simbolo->definitore precisi, non piu' solo euristici"
+        promo = (f" — PROMOTED by a ctags index ({sym_count} unique symbols): "
+                 "precise symbol->definer edges, no longer merely heuristic"
                  if sym_count else "")
-        out.append("grafo generico (riferimenti testuali, garanzia dichiarata "
-                   f"piu' debole di un import graph) per: {', '.join(gen_exts)}"
+        out.append("generic graph (textual references, a declared guarantee "
+                   f"weaker than an import graph) for: {', '.join(gen_exts)}"
                    + promo)
-    out += ["", "## seed (dal sintomo)"]
-    out += [f"- {p}  <- {w}" for p, w in seeds] or ["- (nessuno)"]
-    slice_hdr = ("## file della slice (per rilevanza, estremi ancorati: "
-                 "seed in testa, importatori/caller in coda; i test scendono "
-                 "in mezzo — lost-in-the-middle)"
-                 if anchor_ends else "## file della slice (per rilevanza)")
+    out += ["", "## seeds (from the symptom)"]
+    out += [f"- {p}  <- {w}" for p, w in seeds] or ["- (none)"]
+    slice_hdr = ("## slice files (by relevance, ends anchored: seeds first, "
+                 "importers/callers last; the tests move to the middle — "
+                 "lost-in-the-middle)"
+                 if anchor_ends else "## slice files (by relevance)")
     out += ["", slice_hdr]
     for p, (role, hop, via) in rows:
         detail = {"seed": "seed",
-                  "dipendenza": f"dipendenza a {hop} hop (via {via})",
-                  "importatore": f"importatore a {hop} hop di {via}",
-                  "test": f"test correlato (usa {via})"}[role]
+                  "dependency": f"dependency {hop} hop(s) away (via {via})",
+                  "importer": f"importer {hop} hop(s) away from {via}",
+                  "test": f"related test (uses {via})"}[role]
         if role != "seed" and os.path.splitext(p)[1] in GENERIC_EXTS:
-            detail += " [grafo generico]"
+            detail += " [generic graph]"
         if p in cold:
-            detail += (f" [freddo T5: mai aperto in {cold[p]} sessioni — "
-                       "prior largo, resta in slice]")
+            detail += (f" [T5 cold: never opened in {cold[p]} sessions — "
+                       "wide prior, kept in the slice]")
         out.append(f"- {p} — {detail}")
     if truncated:
-        out.append(f"- … altri {truncated} file in slice (alza --max-files)")
+        out.append(f"- … {truncated} more files in the slice (raise --max-files)")
     if t2b:
-        out += ["", "## T2b — slice per simbolo (budget file-level insoddisfacibile)"]
+        out += ["", "## T2b — per-symbol slice (file-level budget unsatisfiable)"]
         for s, sy, tk, esito, cmds in t2b["entries"]:
             if sy:
-                out.append(f"- {s} :: {', '.join(sy)}  (~{tk} token)")
+                out.append(f"- {s} :: {', '.join(sy)}  (~{tk} tokens)")
             else:
-                out.append(f"- {s} — {esito} (~{tk} token)")
+                out.append(f"- {s} — {esito} (~{tk} tokens)")
             for c in cmds:
-                out.append(f"  estrai: {c}")
-        stato = "RIENTRA nel budget" if t2b["fits"] else "ancora oltre budget"
-        out.append(f"- totale simboli: ~{t2b['total']} token ({stato}). "
-                   "Leggi le slice coi comandi sopra, NON i file interi; "
-                   "page fault = risali al file solo se la slice non basta.")
+                out.append(f"  extract: {c}")
+        stato = "FITS the budget" if t2b["fits"] else "still over budget"
+        out.append(f"- symbol total: ~{t2b['total']} tokens ({stato}). "
+                   "Read the slices with the commands above, NOT the whole "
+                   "files; page fault = fall back to the file only if the "
+                   "slice is not enough.")
     if cov_note:
-        out += ["", "## copertura (reachability dinamica, dichiarata)", cov_note]
+        out += ["", "## coverage (dynamic reachability, declared)", cov_note]
     if dyn_blind:
-        out += ["", "## riferimenti dinamici non risolti (punti ciechi dichiarati)",
-                "import dinamici nei seed con argomento non letterale o fuori "
-                "repo: NON indovinati (regola FQCN). Il grafo non li segue — se "
-                "il bug e' dietro uno di questi, leggi il call site:"]
+        out += ["", "## unresolved dynamic references (declared blind spots)",
+                "dynamic imports in the seeds with a non-literal argument or "
+                "outside the repo: NOT guessed (FQCN rule). The graph does not "
+                "follow them — if the bug is behind one of these, read the "
+                "call site:"]
         out += [f"- {b}" for b in dyn_blind]
     if suf and suf[1]:
         cov, tot, faults = suf
-        out += ["", "## sufficienza (T4: distorsione predetta, sul grafo statico)"]
+        out += ["", "## sufficiency (T4: predicted distortion, over the static graph)"]
         if not faults:
-            out.append(f"SUFFICIENTE: la proiezione contiene tutta la chiusura "
-                       f"answer-preserving dei seed ({tot} unita' di dipendenza). "
-                       "Nessun page fault atteso dalla struttura statica.")
+            out.append(f"SUFFICIENT: the projection contains the whole "
+                       f"answer-preserving closure of the seeds ({tot} "
+                       "dependency units). No page fault expected from the "
+                       "static structure.")
         else:
             shown = faults[:10]
-            out.append(f"INSUFFICIENTE per budget/limite: {cov}/{tot} unita' "
-                       f"della chiusura answer-preserving presenti; {len(faults)} "
-                       "proiettate via = PAGE FAULT ATTESI (rileggile se il "
-                       "ragionamento le tocca, non indovinare):")
+            out.append(f"INSUFFICIENT for the budget/limit: {cov}/{tot} units "
+                       f"of the answer-preserving closure present; {len(faults)} "
+                       "projected away = EXPECTED PAGE FAULTS (re-read them if "
+                       "the reasoning touches them, do not guess):")
             out += [f"- {f}" for f in shown]
             if len(faults) > len(shown):
-                out.append(f"- … altre {len(faults) - len(shown)} unita'")
-    out += ["", "## fuori slice (modello page-fault)",
-            f"{excluded} sorgenti esclusi dal grafo degli import. L'esclusione e' "
-            "un prior, non un divieto: se un file fuori slice sembra rilevante "
-            "(config, DI, import dinamici), leggilo comunque."]
+                out.append(f"- … {len(faults) - len(shown)} more units")
+    out += ["", "## outside the slice (page-fault model)",
+            f"{excluded} sources excluded by the import graph. The exclusion is "
+            "a prior, not a prohibition: if a file outside the slice looks "
+            "relevant (config, DI, dynamic imports), read it anyway."]
     return "\n".join(out)
 
 
@@ -934,16 +937,16 @@ def auto_budget() -> tuple[int, str]:
             st = json.load(f)
         sid, rec = max(st.items(), key=lambda kv: kv[1].get("ts", 0))
     except Exception:                          # noqa: BLE001
-        return 30_000, "auto: nessuno stato contesto (hook T1 mai girato?) -> fallback 30k"
+        return 30_000, "auto: no context state (T1 hook never ran?) -> fallback 30k"
     used = int(rec.get("context_tokens", 0))
     model = rec.get("model") or "?"
     win, _src = _resolve_window(model, used)
     head = max(0, win - used)
     budget = max(8_000, min(int(head * 0.4), BUDGET_MAX))
     age_m = int((time.time() - rec.get("ts", 0)) / 60)
-    stale = f" (stima vecchia di {age_m}m)" if age_m > 30 else ""
-    return budget, (f"auto: sessione {sid}, modello {model}, finestra ~{win // 1000}k, "
-                    f"in uso ~{used // 1000}k, headroom ~{head // 1000}k -> "
+    stale = f" (estimate {age_m}m old)" if age_m > 30 else ""
+    return budget, (f"auto: session {sid}, model {model}, window ~{win // 1000}k, "
+                    f"in use ~{used // 1000}k, headroom ~{head // 1000}k -> "
                     f"budget {budget // 1000}k{stale}")
 
 
@@ -1084,7 +1087,7 @@ def t2b_symbol_slices(root: str, seeds: list[str], symptom: str):
             gt = _go_symbol_targets(sl, source, frame_lines.get(s, []))
             if not gt:
                 entries.append((s, [], whole,
-                                "file intero (nessun simbolo dal sintomo)", []))
+                                "whole file (no symbol from the symptom)", []))
                 total += whole
                 continue
             try:
@@ -1093,7 +1096,7 @@ def t2b_symbol_slices(root: str, seeds: list[str], symptom: str):
                 text = None
             if text is None:                       # split non fidato / fail-safe
                 entries.append((s, [], whole,
-                                "file intero (slice Go non fidata)", []))
+                                "whole file (Go slice not trusted)", []))
                 total += whole
                 continue
             tok = len(text) // 4
@@ -1103,13 +1106,13 @@ def t2b_symbol_slices(root: str, seeds: list[str], symptom: str):
             total += tok
             continue
         if not s.endswith(".py") or sl is None:
-            entries.append((s, [], whole, "file intero (non Python/Go)", []))
+            entries.append((s, [], whole, "whole file (not Python/Go)", []))
             total += whole
             continue
         tg = _symbol_targets(source, frame_lines.get(s, []))
         if not tg["top"] and not tg["methods"]:
             entries.append((s, [], whole,
-                            "file intero (nessun simbolo dal sintomo)", []))
+                            "whole file (no symbol from the symptom)", []))
             total += whole
             continue
         labels: list[str] = []
@@ -1119,7 +1122,7 @@ def t2b_symbol_slices(root: str, seeds: list[str], symptom: str):
         for cls, met, a, b in tg["methods"]:
             seg = "\n".join(src_lines[a - 1:b])
             tok += len(seg) // 4
-            labels.append(f"{cls}.{met} (righe {a}-{b})")
+            labels.append(f"{cls}.{met} (lines {a}-{b})")
             cmds.append(f"sed -n '{a},{b}p' {full_path}")
         if tg["top"]:
             try:
@@ -1128,14 +1131,14 @@ def t2b_symbol_slices(root: str, seeds: list[str], symptom: str):
                 text = None
             if text is None:
                 tok += whole
-                labels.append("(slice fallita: file intero)")
+                labels.append("(slice failed: whole file)")
                 cmds.append(f"cat {full_path}")
             else:
                 tok += len(text) // 4
                 labels += sorted(tg["top"])
                 cmds.append(f"python3 {SLICE_PY} {full_path} "
                             + " ".join(sorted(tg["top"])))
-        esito = "metodi" if tg["methods"] and not tg["top"] else "slice"
+        esito = "methods" if tg["methods"] and not tg["top"] else "slice"
         entries.append((s, labels, tok, esito, cmds))
         total += tok
     return entries, total
@@ -1164,9 +1167,9 @@ def slice_within_budget(root, graph, seeds, refs, budget: int, symptom: str = ""
         kept = slice_repo(graph, seeds, imp_d, refs, deps_d)
         tok = _slice_tokens(root, kept)
         if tok <= budget:
-            nota = (f"<= {_k(budget)} token: scelta config deps="
+            nota = (f"<= {_k(budget)} tokens: chose config deps="
                     f"{deps_d or 'full'} imp={imp_d} "
-                    f"({len(kept)} file, {_k(tok)} token)")
+                    f"({len(kept)} files, {_k(tok)} tokens)")
             # il primo-che-rientra e' un criterio di CENSO, non di merito:
             # se nella famiglia c'e' una config piu' piccola ANCORA
             # sufficiente (gap vuoto), e' lei l'argmin — vedi min_sufficient
@@ -1181,17 +1184,17 @@ def slice_within_budget(root, graph, seeds, refs, budget: int, symptom: str = ""
             minimal[f] = (role, hop, via)
     tok = _slice_tokens(root, minimal)
     if tok <= budget:
-        return minimal, (f"<= {_k(budget)} token: fallback minimo seed+test "
-                         f"({len(minimal)} file, {_k(tok)} token)"), None
+        return minimal, (f"<= {_k(budget)} tokens: minimal seed+test fallback "
+                         f"({len(minimal)} files, {_k(tok)} tokens)"), None
     entries, t2b_tok = t2b_symbol_slices(root, seeds, symptom)
     t2b = {"entries": entries, "total": t2b_tok, "fits": t2b_tok <= budget}
     if t2b["fits"]:
-        nota = (f"file-level {_k(tok)} token > budget {_k(budget)} -> T2b: "
-                f"slice per SIMBOLO sui seed = {_k(t2b_tok)} token (rientra)")
+        nota = (f"file-level {_k(tok)} tokens > budget {_k(budget)} -> T2b: "
+                f"per-SYMBOL slice of the seeds = {_k(t2b_tok)} tokens (fits)")
     else:
-        nota = (f"{_k(budget)} token INSODDISFACIBILE anche per simbolo: "
-                f"minimo file {_k(tok)}, minimo simbolo {_k(t2b_tok)} — "
-                f"restituito il minimo file-level")
+        nota = (f"{_k(budget)} tokens UNSATISFIABLE even per symbol: "
+                f"file minimum {_k(tok)}, symbol minimum {_k(t2b_tok)} — "
+                f"returned the file-level minimum")
     return minimal, nota, t2b
 
 
@@ -1252,9 +1255,10 @@ def min_sufficient(root, graph, seeds, refs, kept, budget=0):
     if best is None:
         return None
     tok, cand, deps_d, imp_d = best
-    return cand, (f"argmin sufficiente: deps={deps_d or 'full'} imp={imp_d} "
-                  f"({len(cand)} file, {_k(tok)} token, "
-                  f"-{1 - tok / cur_tok:.0%} vs scelta iniziale, 0 fault attesi)")
+    return cand, (f"sufficient argmin: deps={deps_d or 'full'} imp={imp_d} "
+                  f"({len(cand)} files, {_k(tok)} tokens, "
+                  f"-{1 - tok / cur_tok:.0%} vs the initial choice, "
+                  f"0 expected faults)")
 
 
 # --- prior appresi (loop T5 -> T2) --------------------------------------------
@@ -1288,8 +1292,8 @@ def prior_seeds(priors: dict | None, fileset: set[str],
     for s in (priors or {}).get("seeds") or []:
         p = str(s.get("path") or "").replace(os.sep, "/")
         if p and p in fileset and p not in have:
-            out.append((p, "prior appreso (T5: aperto fuori slice in "
-                           f"{s.get('sessions', '?')} sessioni)"))
+            out.append((p, "learned prior (T5: opened outside the slice in "
+                           f"{s.get('sessions', '?')} sessions)"))
     return out
 
 
@@ -1374,11 +1378,11 @@ def dynamic_seeds(root: str, seed_files: list[str], files: list[str],
                 continue
             ln = getattr(node, "lineno", 0)
             if mod is None:
-                blind.append(f"{rel}:{ln} (argomento non letterale)")
+                blind.append(f"{rel}:{ln} (non-literal argument)")
                 continue
             hit = _resolve_dyn(mod, mm)
             if hit and hit not in have and hit not in added:
-                added[hit] = (f'riferimento dinamico: import "{mod}" '
+                added[hit] = (f'dynamic reference: import "{mod}" '
                               f"({rel}:{ln})")
             elif not hit:
                 blind.append(f'{rel}:{ln} ("{mod}" fuori repo o ambiguo)')
@@ -1399,7 +1403,7 @@ def git_diff_files(root: str, ref: str) -> tuple[list[str], int]:
         capture_output=True, text=True, timeout=30,
         encoding="utf-8", errors="replace")
     if proc.returncode != 0:
-        raise RuntimeError((proc.stderr or "git diff fallito").strip()[:200])
+        raise RuntimeError((proc.stderr or "git diff failed").strip()[:200])
     changed = [l.strip() for l in proc.stdout.split("\n") if l.strip()]
     src = [f for f in changed
            if os.path.splitext(f)[1].lower() in SRC_EXTS]
@@ -1581,28 +1585,28 @@ def main() -> int:
     ap.add_argument("--seed", action="append", default=[])
     ap.add_argument("--from-diff", nargs="?", const="HEAD", default=None,
                     metavar="REF",
-                    help="semina la slice dai file modificati rispetto a REF "
-                         "(git diff --name-only; default HEAD). Per una PR: "
+                    help="seed the slice from the files changed against REF "
+                         "(git diff --name-only; default HEAD). For a PR: "
                          "--from-diff main...")
     ap.add_argument("--importers-depth", type=int, default=2)
     ap.add_argument("--deps-depth", type=int, default=0,
-                    help="limita la chiusura delle dipendenze (0 = completa)")
+                    help="limit the dependency closure (0 = complete)")
     ap.add_argument("--budget", default="0",
-                    help="budget in TOKEN stimati (size/4) per il working "
-                         "set, oppure 'auto' (finestra - occupato, dallo "
-                         "stato del hook T1); 0 = off")
+                    help="budget in estimated TOKENS (size/4) for the working "
+                         "set, or 'auto' (window - used, from the T1 hook "
+                         "state); 0 = off")
     ap.add_argument("--max-files", type=int, default=60)
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--anchor-ends", action="store_true",
-                    help="ancora gli estremi contro il lost-in-the-middle: "
-                         "seed in testa, importatori/caller in coda, i test "
-                         "scesi in mezzo. Solo ORDINE (nessuna selezione), "
-                         "safe per pi. Off di default")
+                    help="anchor the ends against lost-in-the-middle: seeds "
+                         "first, importers/callers last, the tests moved to "
+                         "the middle. ORDER only (no selection), safe for pi. "
+                         "Off by default")
     args = ap.parse_args()
 
     root = os.path.abspath(args.root)
     if not os.path.isdir(root):
-        print(f"repo non trovato: {root}", file=sys.stderr)
+        print(f"repo not found: {root}", file=sys.stderr)
         return 2
     symptom = args.symptom
     if args.symptom_file:
@@ -1611,7 +1615,7 @@ def main() -> int:
 
     files = collect_files(root)
     if not files:
-        print("nessun sorgente trovato", file=sys.stderr)
+        print("no source found", file=sys.stderr)
         return 2
 
     # budget risolto subito: serve alla chiave di cache
@@ -1634,11 +1638,11 @@ def main() -> int:
             print(f"--from-diff {args.from_diff}: {e}", file=sys.stderr)
             return 2
         if skipped:
-            print(f"--from-diff: {skipped} file modificati non-sorgente "
-                  "(doc/config) esclusi dai seed", file=sys.stderr)
+            print(f"--from-diff: {skipped} changed non-source files "
+                  "(doc/config) excluded from the seeds", file=sys.stderr)
         if not diff_files and not symptom and not args.seed:
-            print(f"--from-diff {args.from_diff}: nessun sorgente modificato "
-                  "— niente da affettare", file=sys.stderr)
+            print(f"--from-diff {args.from_diff}: no source changed "
+                  "— nothing to slice", file=sys.stderr)
 
     # cache PRIMA delle parti costose (grep dei letterali + grafo import).
     # indice ctags (se il repo ne shippa uno): promuove il grafo generico.
@@ -1671,13 +1675,13 @@ def main() -> int:
     if hit is not None:
         print(hit)
         if not args.json:
-            print(f"[cache T2@{t2_version()}: manifest riusato — repo, "
-                  "sintomo, parametri e operatore invariati]")
+            print(f"[cache T2@{t2_version()}: manifest reused — repo, "
+                  "symptom, parameters and operator unchanged]")
         return 0
 
     seeds = find_seeds(root, files, symptom, args.seed, diff_files,
-                       f"file modificato nel diff ({args.from_diff})"
-                       if args.from_diff else "file modificato nel diff")
+                       f"file changed in the diff ({args.from_diff})"
+                       if args.from_diff else "file changed in the diff")
     dyn_blind: list[str] = []
     if seeds:
         # i prior appresi AGGIUNGONO seed (mai creano una slice da soli:
@@ -1694,15 +1698,15 @@ def main() -> int:
             seeds = sorted(seeds + dyn)
         # accoppiamento evolutivo (git co-change): prior cold-start additivo.
         have = {s for s, _ in seeds}
-        cochange = [(f, f"co-cambiato col seed in {n} commit (git)")
+        cochange = [(f, f"co-changed with the seed in {n} commits (git)")
                     for f, n in git_cochange(root, have, fileset)
                     if f not in have]
         if cochange:
             seeds = sorted(seeds + cochange)
     if not seeds:
-        print("ATTENZIONE: nessun seed riconosciuto nel sintomo — slice impossibile.\n"
-              "Passa --seed <file> oppure includi uno stack trace / messaggio "
-              "d'errore nel sintomo. Fail-safe: nessuna proiezione applicata.",
+        print("WARNING: no seed recognised in the symptom — slice impossible.\n"
+              "Pass --seed <file>, or include a stack trace / error message "
+              "in the symptom. Fail-safe: no projection applied.",
               file=sys.stderr)
         print(render(root, len(files), [], {}, args.max_files, args.json,
                      anchor_ends=args.anchor_ends))
@@ -1722,13 +1726,14 @@ def main() -> int:
                          if f not in static_reach and f not in have)
         if 0 < len(covdiff) <= COV_MAX:
             seeds = sorted(seeds + [
-                (f, "eseguito a runtime (copertura), invisibile al grafo "
-                    "statico dai seed") for f in covdiff])
+                (f, "executed at runtime (coverage), invisible to the "
+                    "static graph from the seeds") for f in covdiff])
         elif len(covdiff) > COV_MAX:
-            cov_note = (f"{len(covdiff)} file eseguiti (copertura) fuori dal "
-                        "grafo statico dai seed — troppi per seminare con "
-                        "precisione (copertura di suite, non del solo "
-                        "scenario); leggili mirati se il ragionamento li tocca")
+            cov_note = (f"{len(covdiff)} executed files (coverage) outside the "
+                        "static graph from the seeds — too many to seed "
+                        "precisely (whole-suite coverage, not just this "
+                        "scenario); read them selectively if the reasoning "
+                        "touches them")
     budget_note = None
     t2b = None
     if budget:

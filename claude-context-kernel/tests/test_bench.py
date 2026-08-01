@@ -61,7 +61,7 @@ class TestSufficiencyBench(unittest.TestCase):
                                   capture_output=True, text=True, timeout=60,
                                   encoding="utf-8", errors="replace")
             self.assertEqual(proc.returncode, 2)
-            self.assertIn("nessun raise-site", proc.stderr)
+            self.assertIn("no candidate raise site", proc.stderr)
         finally:
             shutil.rmtree(empty)
 

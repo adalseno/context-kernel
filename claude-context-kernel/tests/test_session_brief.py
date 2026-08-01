@@ -32,7 +32,7 @@ class TestSessionBrief(unittest.TestCase):
                         "2026-07-17T07:01:00,Bash,2000,500,1500,abc\n")
             proc = _util.run_hook(BRIEF, PAYLOAD, env={"CK_LOG": log})
             ctx = _util.hook_json(proc)["hookSpecificOutput"]["additionalContext"]
-            self.assertIn("2 compressioni", ctx)
+            self.assertIn("2 compressions", ctx)
             self.assertIn("2,100", ctx)
         finally:
             os.unlink(log)
@@ -48,7 +48,7 @@ class TestSessionBrief(unittest.TestCase):
                                   env={"CK_LOG": "/inesistente",
                                        "CK_AB_STATE": ab})
             ctx = _util.hook_json(proc)["hookSpecificOutput"]["additionalContext"]
-            self.assertIn("2 campioni in attesa", ctx)
+            self.assertIn("2 samples awaiting judgement", ctx)
             self.assertIn("ab_verify.py", ctx)
         finally:
             os.unlink(ab)
@@ -75,9 +75,9 @@ class TestSessionBrief(unittest.TestCase):
                                   env={"CK_LOG": "/inesistente",
                                        "CK_CANARY_STATE": canary})
             ctx = _util.hook_json(proc)["hookSpecificOutput"]["additionalContext"]
-            self.assertIn("2 failure aperti", ctx)
-            self.assertIn("3 compressioni verificate OK dopo", ctx)
-            self.assertIn("1 sessioni in auto-degrade", ctx)
+            self.assertIn("2 open failures", ctx)
+            self.assertIn("3 compressions verified OK since", ctx)
+            self.assertIn("1 sessions auto-degraded", ctx)
         finally:
             os.unlink(canary)
 

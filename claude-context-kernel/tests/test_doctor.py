@@ -52,15 +52,15 @@ class TestDoctor(unittest.TestCase):
         # Nessuno stato canary/A-B: struttura ok -> exit 0, nessun [ko].
         r = self._run()
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn("VERDETTO", r.stdout)
+        self.assertIn("VERDICT", r.stdout)
         self.assertNotIn("[ko]", r.stdout)
 
     def test_core_scripts_and_commands_ok(self):
         mod = _load()
         rows, n_ko, _ = mod.check()
         texts = " ".join(m for _, m in rows)
-        self.assertIn("script core presenti", texts)
-        self.assertIn("comandi /ck-* presenti", texts)
+        self.assertIn("core scripts present", texts)
+        self.assertIn("/ck-* commands present", texts)
         self.assertEqual(n_ko, 0)
 
     def test_canary_failure_is_ko_and_exit_one(self):

@@ -50,9 +50,9 @@ PROJECTS_DIR = os.path.expanduser(
     os.environ.get("CK_PROJECTS_DIR", "~/.claude/projects"))
 DEFAULT_LAST = int(os.environ.get("CK_REVEALED_LAST", "5"))
 
-MANIFEST_MARK = "## seed (dal sintomo)"
-ELIDED_MARK = "copia ELISA"
-INVARIATO_MARK = "file INVARIATO dall'ultima lettura"
+MANIFEST_MARK = "## seeds (from the symptom)"
+ELIDED_MARK = "ELIDED copy"
+INVARIATO_MARK = "file UNCHANGED since the last read"
 
 
 def est_tokens(text: str) -> int:
@@ -98,7 +98,7 @@ def manifest_files(text: str) -> tuple[list[str], str | None]:
         if line.startswith("## "):
             section = line
             continue
-        if section is None or "fuori slice" in section:
+        if section is None or "outside the slice" in section:
             continue
         if line.startswith("- ") and not line.startswith(("- …", "- (")):
             f = line[2:].split()[0]
@@ -182,49 +182,49 @@ def mine_transcript(path: str) -> dict:
         "reads": len(reads),
         "faults": [{"file": f, "tokens": t} for f, t in faults],
         "fault_tokens": sum(t for _, t in faults),
-        "invariato": invariato,
+        "unchanged": invariato,
     }
 
 
 def render(r: dict) -> str:
-    out = [f"# rilevanza rivelata — {os.path.basename(r['transcript'])}"]
+    out = [f"# revealed relevance — {os.path.basename(r['transcript'])}"]
     if not r["slice_files"] and not r["reads"]:
-        out.append("(nessuna slice T2 e nessuna Read nel transcript)")
+        out.append("(no T2 slice and no Read in the transcript)")
         return "\n".join(out)
     if r["slice_files"]:
         n = len(r["slice_files"])
-        out.append(f"manifest T2: {n} file"
+        out.append(f"T2 manifest: {n} files"
                    + (f" (repo {r['repo']})" if r["repo"] else ""))
-        out.append(f"- aperti dalla slice: {len(r['opened'])}/{n}")
+        out.append(f"- opened from the slice: {len(r['opened'])}/{n}")
         if r["never_opened"]:
             shown = ", ".join(r["never_opened"][:10])
             more = f" (+{len(r['never_opened']) - 10})" \
                 if len(r["never_opened"]) > 10 else ""
-            out.append(f"- MAI aperti: {shown}{more}")
-            out.append("  -> suggerimento: se ricorre su piu' sessioni, il "
-                       "prior e' largo — valuta meno importatori/profondita' "
-                       "(il page fault resta come rete)")
+            out.append(f"- NEVER opened: {shown}{more}")
+            out.append("  -> hint: if this recurs across sessions the "
+                       "prior is too wide — consider fewer importers/less depth "
+                       "(the page fault stays as a safety net)")
         if r["outside_slice"]:
             shown = ", ".join(r["outside_slice"][:10])
             more = f" (+{len(r['outside_slice']) - 10})" \
                 if len(r["outside_slice"]) > 10 else ""
-            out.append(f"- aperti FUORI slice: {shown}{more}")
-            out.append("  -> suggerimento: seed persi — se sono config/DI/"
-                       "import dinamici, candidali ai seed dello slicer")
+            out.append(f"- opened OUTSIDE the slice: {shown}{more}")
+            out.append("  -> hint: missed seeds — if they are config/DI/"
+                       "dynamic imports, propose them as slicer seeds")
     else:
-        out.append(f"nessun manifest T2 iniettato; Read totali: {r['reads']}")
+        out.append(f"no T2 manifest injected; total Reads: {r['reads']}")
     if r["faults"]:
         files = ", ".join(sorted({f['file'].split('/')[-1]
                                   for f in r["faults"]}))
-        out.append(f"- page fault post-elisione: {len(r['faults'])} "
-                   f"({files}) ~{r['fault_tokens']} token di riletture")
-        out.append("  -> costo dell'elisione su questi file: se ricorre, "
-                   "alza CK_MIN_TOKENS/CK_OUTLINE_MIN o usa # ck:raw li'")
+        out.append(f"- page faults after elision: {len(r['faults'])} "
+                   f"({files}) ~{r['fault_tokens']} tokens of re-reads")
+        out.append("  -> cost of eliding these files: if it recurs, "
+                   "raise CK_MIN_TOKENS/CK_OUTLINE_MIN or use # ck:raw there")
     else:
-        out.append("- page fault post-elisione: 0 (nessuna elisione e' "
-                   "costata una rilettura)")
-    if r["invariato"]:
-        out.append(f"- riletture INVARIATE evitate: {r['invariato']}")
+        out.append("- page faults after elision: 0 (no elision cost "
+                   "a re-read)")
+    if r["unchanged"]:
+        out.append(f"- UNCHANGED re-reads avoided: {r['unchanged']}")
     return "\n".join(out)
 
 
@@ -259,33 +259,33 @@ def aggregate(results: list[dict]) -> dict:
             outside[fp] = outside.get(fp, 0) + 1
         for sf in r["never_opened"]:
             never[sf] = never.get(sf, 0) + 1
-        tot_invariato += r["invariato"]
+        tot_invariato += r["unchanged"]
 
     proposals: list[str] = []
     for fp, d in sorted(fault_files.items(),
                         key=lambda kv: (-kv[1]["tokens"], kv[0])):
         if d["transcripts"] >= 2 or d["faults"] >= 2:
             proposals.append(
-                f"`# ck:raw` in {os.path.basename(fp)} (o alza "
-                f"CK_MIN_TOKENS/CK_OUTLINE_MIN): {d['faults']} fault, "
-                f"~{d['tokens']} token di riletture in "
-                f"{d['transcripts']} sessioni — {fp}")
+                f"`# ck:raw` in {os.path.basename(fp)} (or raise "
+                f"CK_MIN_TOKENS/CK_OUTLINE_MIN): {d['faults']} faults, "
+                f"~{d['tokens']} tokens of re-reads across "
+                f"{d['transcripts']} sessions — {fp}")
     for fp, n in sorted(outside.items(), key=lambda kv: (-kv[1], kv[0])):
         if n >= 2:
             proposals.append(
-                f"candidalo ai seed dello slicer: {fp} "
-                f"(aperto FUORI slice in {n} sessioni)")
+                f"propose as a slicer seed: {fp} "
+                f"(opened OUTSIDE the slice in {n} sessions)")
     for sf, n in sorted(never.items(), key=lambda kv: (-kv[1], kv[0])):
         if n >= 2:
             proposals.append(
-                f"prior largo: {sf} in slice ma MAI aperto in {n} manifest "
-                "— valuta meno importatori/profondita'")
+                f"wide prior: {sf} in the slice but NEVER opened across {n} "
+                "manifests — consider fewer importers/less depth")
     return {
         "transcripts": len(results),
         "manifests": manifests,
         "faults": tot_faults,
         "fault_tokens": tot_fault_tokens,
-        "invariato": tot_invariato,
+        "unchanged": tot_invariato,
         "fault_files": fault_files,
         "outside_recurrent": {f: n for f, n in outside.items() if n >= 2},
         "never_recurrent": {f: n for f, n in never.items() if n >= 2},
@@ -337,17 +337,17 @@ def write_rates(a: dict) -> list[str]:
     """Scrive RATES_STATE per compress.py. Ritorna le righe di esito."""
     rates = rates_from_aggregate(a)
     if not rates:
-        return ["tassi: nessun fault ricorrente — niente da scrivere"]
+        return ["rates: no recurrent fault — nothing to write"]
     payload = {"ts": time.time(), "transcripts": a["transcripts"],
                "categories": rates}
     tmp = f"{RATES_STATE}.tmp.{os.getpid()}"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(payload, f)
     os.replace(tmp, RATES_STATE)
-    lines = [f"tassi scritti in {RATES_STATE} (compress.py li legge):"]
+    lines = [f"rates written to {RATES_STATE} (compress.py reads them):"]
     lines += [f"- {ext} -> {r['mode']}"
               + (f" x{r['scale']}" if r["mode"] == "relax" else "")
-              + f" ({r['faults']} fault, ~{r['tokens']} token di riletture)"
+              + f" ({r['faults']} faults, ~{r['tokens']} tokens of re-reads)"
               for ext, r in rates.items()]
     return lines
 
@@ -385,8 +385,8 @@ def write_priors(a: dict, results: list[dict]) -> list[str]:
     """Scrive PRIORS_STATE per repo_slice.py. Ritorna le righe di esito."""
     priors = priors_from_aggregate(a, results)
     if not priors:
-        return ["prior: nessun pattern ricorrente con repo noto — "
-                "niente da scrivere"]
+        return ["priors: no recurrent pattern with a known repo — "
+                "nothing to write"]
     try:
         with open(PRIORS_STATE, encoding="utf-8") as f:
             st = json.load(f)
@@ -394,12 +394,12 @@ def write_priors(a: dict, results: list[dict]) -> list[str]:
             st = {}
     except Exception:                          # noqa: BLE001
         st = {}
-    lines = [f"prior scritti in {PRIORS_STATE} (repo_slice.py li legge):"]
+    lines = [f"priors written to {PRIORS_STATE} (repo_slice.py reads them):"]
     for repo, rec in priors.items():
         st[os.path.normpath(repo)] = {"ts": time.time(),
                                       "transcripts": a["transcripts"], **rec}
-        lines.append(f"- {repo}: {len(rec['seeds'])} seed candidati, "
-                     f"{len(rec['cold'])} file freddi")
+        lines.append(f"- {repo}: {len(rec['seeds'])} candidate seeds, "
+                     f"{len(rec['cold'])} cold files")
     for k in sorted(st, key=lambda k: st[k].get("ts", 0))[:-8]:
         st.pop(k, None)                        # tieni gli ultimi 8 repo
     tmp = f"{PRIORS_STATE}.tmp.{os.getpid()}"
@@ -410,18 +410,18 @@ def write_priors(a: dict, results: list[dict]) -> list[str]:
 
 
 def render_aggregate(a: dict) -> str:
-    out = [f"# rilevanza rivelata — AGGREGATO su {a['transcripts']} transcript"]
-    out.append(f"manifest T2 visti: {a['manifests']}  |  page fault totali: "
-               f"{a['faults']} (~{a['fault_tokens']} token di riletture)  |  "
-               f"riletture INVARIATE evitate: {a['invariato']}")
+    out = [f"# revealed relevance — AGGREGATE over {a['transcripts']} transcripts"]
+    out.append(f"T2 manifests seen: {a['manifests']}  |  total page faults: "
+               f"{a['faults']} (~{a['fault_tokens']} tokens of re-reads)  |  "
+               f"UNCHANGED re-reads avoided: {a['unchanged']}")
     if a["proposals"]:
         out.append("")
-        out.append("## proposta di config (applicala tu: la telemetria "
-                   "suggerisce, mai auto-tuning)")
+        out.append("## suggested config (you apply it: telemetry "
+                   "suggests, never auto-tunes)")
         out.extend(f"- {p}" for p in a["proposals"])
     else:
-        out.append("nessun pattern ricorrente: niente da proporre "
-                   "(le soglie scattano su >=2 sessioni/occorrenze)")
+        out.append("no recurrent pattern: nothing to propose "
+                   "(thresholds fire at >=2 sessions/occurrences)")
     return "\n".join(out)
 
 
@@ -455,13 +455,13 @@ def main() -> int:
             try:
                 last = int(next(it))
             except (StopIteration, ValueError):
-                print("--last vuole un intero", file=sys.stderr)
+                print("--last expects an integer", file=sys.stderr)
                 return 1
             continue
         args.append(a)
     paths = pick_transcripts(args, last)
     if not paths:
-        print("nessun transcript trovato", file=sys.stderr)
+        print("no transcript found", file=sys.stderr)
         return 1
     results = [mine_transcript(p) for p in paths]
     if do_aggregate:
@@ -478,7 +478,7 @@ def main() -> int:
         else:
             out = render_aggregate(agg)
             if extra:
-                out += "\n\n## attuazione esplicita\n" + "\n".join(extra)
+                out += "\n\n## explicit application\n" + "\n".join(extra)
             print(out)
         return 0
     if as_json:

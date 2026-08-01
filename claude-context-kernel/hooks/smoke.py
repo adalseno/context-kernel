@@ -1,42 +1,41 @@
 #!/usr/bin/env python3
 """
-smoke.py — il rito di verifica LIVE, scriptato (1.17.0).
+smoke.py — the LIVE verification ritual, scripted (1.17.0).
 
-Il dato empirico che questo file istituzionalizza: OGNI verifica dal vivo
-delle release ha trovato bug che 300+ test non vedevano (additionalContext
-ignorato, canary contro parcheggio, fixture nello store reale, ...) —
-perche' i test esercitano gli operatori, il rito esercita il CONTRATTO con
-l'harness reale. Da qui: una release non e' "verde" finche' lo smoke non
-passa in una sessione vera.
+The empirical fact this file institutionalises: EVERY live check of a release
+has found bugs that 300+ tests did not see (additionalContext ignored, canary
+vs parking, fixtures in the real store, ...) — because the tests exercise the
+operators, while the ritual exercises the CONTRACT with the real harness.
+Hence: a release is not "green" until the smoke passes in a real session.
 
-Protocollo a DUE comandi, da eseguire in una sessione Claude Code viva
-su questo repo (Bash normale, senza `# ck:raw` sul generate):
+A TWO-command protocol, to be run in a live Claude Code session on this repo
+(plain Bash, without `# ck:raw` on the generate step):
 
-    python3 hooks/smoke.py generate    # 400 righe con AGO CALCOLATO a
-                                       # runtime (mai nel comando, mai nel
-                                       # contesto) — il hook la comprime
-    python3 hooks/smoke.py check       # verifica sul TRANSCRIPT REALE
-                                       # cio' che l'harness ha DAVVERO fatto
+    python3 hooks/smoke.py generate    # 400 lines with a NEEDLE COMPUTED at
+                                       # runtime (never in the command, never
+                                       # in the context) — the hook compresses it
+    python3 hooks/smoke.py check       # checks against the REAL TRANSCRIPT
+                                       # what the harness ACTUALLY did
 
-Cosa asserisce `check` (PASS/FAIL per punto, exit != 0 su ogni FAIL):
-  1. il tool_result del generate sta nel transcript della sessione;
-  2. e' la versione COMPRESSA (footer presente: updatedToolOutput onorato);
-  3. l'ago e' stato ELISO dal contesto;
-  4. il footer dichiara il parcheggio e la chiave;
-  5. la chiave esiste nello store del parcheggio;
-  6. recall.py KEY --grep ritrova l'ago, numerato (page fault inverso);
-  7. il canary non ha accumulato NUOVI failed dal generate (niente falsi
-     allarmi sul contratto);
-  8. advisor in 4 punti sul context state REALE della sessione (avviso a
-     soglia bassa; one-shot; subagent muto; soglia alta muta) — SKIP
-     dichiarato se il tap della sessione non e' ancora stato scritto.
+What `check` asserts (PASS/FAIL per item, exit != 0 on any FAIL):
+  1. the generate tool_result is in the session transcript;
+  2. it is the COMPRESSED version (footer present: updatedToolOutput honoured);
+  3. the needle was ELIDED from the context;
+  4. the footer declares the parking spot and the key;
+  5. the key exists in the parking store;
+  6. recall.py KEY --grep finds the needle, numbered (inverse page fault);
+  7. the canary accumulated no NEW failures since generate (no false alarms
+     on the contract);
+  8. a 4-point advisor check against the session's REAL context state (warning
+     at a low threshold; one-shot; subagent silent; high threshold silent) —
+     declared SKIP if the session tap has not been written yet.
 
-Copertura DICHIARATA: la gamba effimera e' il Bash (rappresentativo:
-stessa via di parcheggio di WebFetch/MCP); compact reale, resume e guardie
-restano al rito manuale (richiedono eventi harness non scriptabili da qui).
+DECLARED coverage: the ephemeral leg is Bash (representative: same parking
+path as WebFetch/MCP); a real compact, resume and the guards stay in the
+manual ritual (they need harness events that cannot be scripted from here).
 
-Stato tra i due comandi: CK_SMOKE_STATE (default ~/.context-kernel-smoke
-.json) — id univoco del lotto, ago, snapshot canary. Zero rete, zero API.
+State between the two commands: CK_SMOKE_STATE (default ~/.context-kernel-smoke
+.json) — unique batch id, needle, canary snapshot. Zero network, zero API.
 """
 from __future__ import annotations
 
@@ -84,20 +83,20 @@ def generate() -> int:
     run_id = digest[:8]
     # ago DECIMALE (niente hex: non deve somigliare a hash/segnale) e
     # formulazione senza parole di segnale (error/warn/fail/path)
-    needle = f"sentinella-{int(digest, 16) % 100_000:05d}"
+    needle = f"sentinel-{int(digest, 16) % 100_000:05d}"
     state = {"ts": time.time(), "id": run_id, "needle": needle,
              "canary_failed": _canary_failed()}
     tmp = f"{SMOKE_STATE}.tmp.{os.getpid()}"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(state, f)
     os.replace(tmp, SMOKE_STATE)
-    print(f"smoke context-kernel — lotto {run_id} — inizio")
+    print(f"smoke context-kernel — batch {run_id} — start")
     for i in range(2, N_LINES):
         if i == NEEDLE_AT:
-            print(f"riga {i:03d} — {needle} registrata nel lotto notturno")
+            print(f"line {i:03d} — {needle} recorded in the nightly batch")
         else:
-            print(f"riga {i:03d} — elaborazione lotto completata senza variazioni")
-    print(f"smoke context-kernel — lotto {run_id} — fine")
+            print(f"line {i:03d} — batch processing completed with no changes")
+    print(f"smoke context-kernel — batch {run_id} — end")
     return 0
 
 
@@ -118,7 +117,7 @@ def _result_text(obj: dict) -> str | None:
 def _find_result(run_id: str) -> tuple[str, str] | None:
     """(transcript_path, testo del tool_result del generate) — cerca il
     lotto per id nei transcript recenti, dal piu' fresco."""
-    marker = f"lotto {run_id}"
+    marker = f"batch {run_id}"
     cands = []
     for base, _dirs, files in os.walk(TRANSCRIPTS):
         for fn in files:
@@ -153,9 +152,9 @@ def _advisor_checks(transcript: str) -> tuple[str, list[str]]:
         with open(CONTEXT_STATE, encoding="utf-8") as f:
             rec = (json.load(f) or {}).get(sid) or {}
         if int(rec.get("context_tokens") or 0) <= 0:
-            return "SKIP", ["tap della sessione non ancora scritto"]
+            return "SKIP", ["session tap not written yet"]
     except Exception:                      # noqa: BLE001
-        return "SKIP", ["context state assente"]
+        return "SKIP", ["context state missing"]
     adv = os.path.join(HOOKS, "compact_advisor.py")
     iso = f"{SMOKE_STATE}.advise.{os.getpid()}"
     payload = json.dumps({"tool_name": "Bash", "transcript_path": transcript})
@@ -172,31 +171,31 @@ def _advisor_checks(transcript: str) -> tuple[str, list[str]]:
                 [sys.executable, adv], input=pl, capture_output=True,
                 text=True, env=env, timeout=30).stdout.strip()
         except Exception:                  # noqa: BLE001
-            return "<errore subprocess>"
+            return "<subprocess error>"
 
     details, ok = [], True
     first = run("0.05")
     if "additionalContext" in first and "/compact" in first:
-        details.append("avviso a soglia bassa: PASS")
+        details.append("warning at low threshold: PASS")
     else:
-        details.append(f"avviso a soglia bassa: FAIL ({first[:80]})")
+        details.append(f"warning at low threshold: FAIL ({first[:80]})")
         ok = False
     if run("0.05") == "{}":
-        details.append("one-shot per sessione: PASS")
+        details.append("one-shot per session: PASS")
     else:
-        details.append("one-shot per sessione: FAIL")
+        details.append("one-shot per session: FAIL")
         ok = False
     sub = json.dumps({"tool_name": "Bash", "transcript_path": transcript,
                       "agent_id": "smoke-sub"})
     if run("0.05", pl=sub, state=iso + ".b") == "{}":
-        details.append("subagent muto: PASS")
+        details.append("subagent silent: PASS")
     else:
-        details.append("subagent muto: FAIL")
+        details.append("subagent silent: FAIL")
         ok = False
     if run("0.99", state=iso + ".c") == "{}":
-        details.append("soglia alta muta: PASS")
+        details.append("high threshold silent: PASS")
     else:
-        details.append("soglia alta muta: FAIL")
+        details.append("high threshold silent: FAIL")
         ok = False
     for suffix in ("", ".b", ".c"):
         try:
@@ -211,73 +210,73 @@ def check() -> int:
         with open(SMOKE_STATE, encoding="utf-8") as f:
             st = json.load(f)
     except Exception:                      # noqa: BLE001
-        print("FAIL  stato smoke assente: eseguire prima `smoke.py generate`")
+        print("FAIL  smoke state missing: run `smoke.py generate` first")
         return 1
     run_id, needle = st["id"], st["needle"]
     results: list[tuple[str, str]] = []
 
     found = _find_result(run_id)
     if not found:
-        print(f"FAIL  lotto {run_id} non trovato in nessun transcript "
-              f"recente sotto {TRANSCRIPTS} — sessione diversa, o il "
-              "risultato non e' (ancora) stato scritto")
+        print(f"FAIL  batch {run_id} not found in any recent transcript "
+              f"under {TRANSCRIPTS} — different session, or the result "
+              "has not been written (yet)")
         return 1
     transcript, text = found
-    results.append(("PASS", f"lotto {run_id} trovato nel transcript "
+    results.append(("PASS", f"batch {run_id} found in transcript "
                     f"{os.path.basename(transcript)}"))
 
-    if "[context-kernel:" in text and "token, -" in text:
-        results.append(("PASS", "tool_result COMPRESSO nel transcript "
-                        "(updatedToolOutput onorato dall'harness)"))
+    if "[context-kernel:" in text and "tokens, -" in text:
+        results.append(("PASS", "tool_result COMPRESSED in the transcript "
+                        "(updatedToolOutput honoured by the harness)"))
     else:
-        results.append(("FAIL", "tool_result INTEGRALE nel transcript: "
-                        "l'harness ha ignorato updatedToolOutput"))
+        results.append(("FAIL", "tool_result FULL in the transcript: "
+                        "the harness ignored updatedToolOutput"))
     if needle not in text:
-        results.append(("PASS", "ago eliso dal contesto"))
+        results.append(("PASS", "needle elided from the context"))
     else:
-        results.append(("FAIL", "ago ancora presente: nessuna elisione "
-                        "(soglie? plugin disattivo?)"))
+        results.append(("FAIL", "needle still present: no elision "
+                        "(thresholds? plugin disabled?)"))
 
-    m = re.search(r"parcheggiato: python3 .*recall\.py\"? ([0-9a-f]{10})", text)
+    m = re.search(r"parked: python3 .*recall\.py\"? ([0-9a-f]{10})", text)
     key = m.group(1) if m else None
     if key:
-        results.append(("PASS", f"footer dichiara il parcheggio (chiave {key})"))
+        results.append(("PASS", f"footer declares the parking spot (key {key})"))
         try:
             with open(PARK_STATE, encoding="utf-8") as f:
                 in_store = key in (json.load(f) or {})
         except Exception:                  # noqa: BLE001
             in_store = False
-        results.append(("PASS", "chiave presente nello store") if in_store
-                       else ("FAIL", "chiave assente dallo store del parcheggio"))
+        results.append(("PASS", "key present in the store") if in_store
+                       else ("FAIL", "key missing from the parking store"))
         rec = subprocess.run(
             [sys.executable, os.path.join(HOOKS, "recall.py"),
-             key, "--grep", "sentinella"],
+             key, "--grep", "sentinel"],
             capture_output=True, text=True, timeout=30)
         if needle in rec.stdout and str(NEEDLE_AT) in rec.stdout:
-            results.append(("PASS", "recall --grep ritrova l'ago, numerato "
-                            "(page fault inverso funzionante)"))
+            results.append(("PASS", "recall --grep finds the needle, numbered "
+                            "(inverse page fault working)"))
         else:
-            results.append(("FAIL", "recall non ritrova l'ago "
+            results.append(("FAIL", "recall does not find the needle "
                             f"({rec.stdout[:80]!r})"))
     else:
-        results.append(("FAIL", "footer senza hint di parcheggio"))
+        results.append(("FAIL", "footer without a parking hint"))
 
     failed_now = _canary_failed()
     if failed_now <= st.get("canary_failed", 0):
-        results.append(("PASS", "canary: nessun nuovo failed dal generate"))
+        results.append(("PASS", "canary: no new failures since generate"))
     else:
         results.append(("FAIL", f"canary: failed {st.get('canary_failed', 0)}"
-                        f" -> {failed_now} — indagare PRIMA di fidarsi del ledger"))
+                        f" -> {failed_now} — investigate BEFORE trusting the ledger"))
 
     verdict, details = _advisor_checks(transcript)
-    results.append((verdict, "advisor (4 punti): " + "; ".join(details)))
+    results.append((verdict, "advisor (4 points): " + "; ".join(details)))
 
     bad = 0
     for v, msg in results:
         print(f"{v:5s} {msg}")
         bad += int(v == "FAIL")
-    print(f"\nsmoke: {len(results) - bad}/{len(results)} punti superati"
-          + ("" if not bad else f", {bad} FALLITI"))
+    print(f"\nsmoke: {len(results) - bad}/{len(results)} points passed"
+          + ("" if not bad else f", {bad} FAILED"))
     return 1 if bad else 0
 
 

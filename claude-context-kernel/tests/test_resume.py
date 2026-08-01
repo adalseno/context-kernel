@@ -20,9 +20,9 @@ Q: il retry non rispetta il limite
 """
 
 MANIFEST_HEAD = """# kernel repo slice — manifest
-operatore: T2@test
+operator: T2@test
 repo: /repo
-## seed (dal sintomo)
+## seeds (from the symptom)
 - db.py  <- citato nel sintomo"""
 
 
@@ -71,7 +71,7 @@ class TestResume(unittest.TestCase):
     def test_new_session_same_repo_restores(self):
         self._end()
         ctx = self._start()["hookSpecificOutput"]["additionalContext"]
-        self.assertIn("TS(Q) della sessione precedente", ctx)
+        self.assertIn("TS(Q) from the previous session", ctx)
         self.assertIn("retry esattamente 3 volte", ctx)
         self.assertIn("## seed", ctx)
 
@@ -96,7 +96,7 @@ class TestResume(unittest.TestCase):
         _util.run_script(_util.CHARTER, "", env=self.env,
                          args=["clear", "--repo", self.repo])
         ctx = self._start()["hookSpecificOutput"]["additionalContext"]
-        self.assertIn("TS(Q) della sessione precedente", ctx)
+        self.assertIn("TS(Q) from the previous session", ctx)
         self.assertNotIn("retry esattamente 3 volte", ctx)  # carta pulita
         self.assertIn("## seed", ctx)                       # working set resta
 

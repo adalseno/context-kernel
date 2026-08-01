@@ -69,9 +69,9 @@ class SmokeCase(unittest.TestCase):
         """Versione 'compressa' plausibile: testa, marker, coda, footer con
         hint di parcheggio — e l'ago NON c'e' (eliso)."""
         lines = original.strip().split("\n")
-        body = lines[:20] + ["[context-kernel: elise righe 21-390: ...]"] + lines[-8:]
-        footer = ('[context-kernel: 5799 -> 728 token, -87%] '
-                  f'[parcheggiato: python3 "{os.path.join(_util.HOOKS, "recall.py")}" '
+        body = lines[:20] + ["[context-kernel: elided lines 21-390: ...]"] + lines[-8:]
+        footer = ('[context-kernel: 5799 -> 728 tokens, -87%] '
+                  f'[parked: python3 "{os.path.join(_util.HOOKS, "recall.py")}" '
                   f"{KEY} --grep PATTERN | --lines A-B]")
         return "\n".join(body) + "\n\n" + footer
 
@@ -89,11 +89,11 @@ class TestGenerate(SmokeCase):
         run_id, needle, out = self.gen()
         lines = out.strip().split("\n")
         self.assertEqual(len(lines), 400)
-        self.assertIn(f"lotto {run_id} — inizio", lines[0])
-        self.assertIn(f"lotto {run_id} — fine", lines[-1])
+        self.assertIn(f"batch {run_id} — start", lines[0])
+        self.assertIn(f"batch {run_id} — end", lines[-1])
         self.assertIn(needle, lines[236])                 # riga 237, 1-based
         self.assertEqual(sum(needle in l for l in lines), 1)
-        self.assertRegex(needle, r"^sentinella-\d{5}$")   # niente hex/segnale
+        self.assertRegex(needle, r"^sentinel-\d{5}$")   # niente hex/segnale
 
 
 class TestCheck(SmokeCase):
@@ -105,9 +105,9 @@ class TestCheck(SmokeCase):
         proc = run_smoke("check", self.env)
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
         self.assertNotIn("FAIL", proc.stdout)
-        self.assertIn("updatedToolOutput onorato", proc.stdout)
-        self.assertIn("ago eliso", proc.stdout)
-        self.assertIn("page fault inverso funzionante", proc.stdout)
+        self.assertIn("updatedToolOutput honoured", proc.stdout)
+        self.assertIn("needle elided", proc.stdout)
+        self.assertIn("inverse page fault working", proc.stdout)
         self.assertIn("SKIP", proc.stdout)                # advisor: tap assente
 
     def test_raw_transcript_is_the_alarm_case(self):
@@ -117,8 +117,8 @@ class TestCheck(SmokeCase):
         self.write_transcript(out)                        # integrale, con ago
         proc = run_smoke("check", self.env)
         self.assertEqual(proc.returncode, 1)
-        self.assertIn("ha ignorato updatedToolOutput", proc.stdout)
-        self.assertIn("ago ancora presente", proc.stdout)
+        self.assertIn("ignored updatedToolOutput", proc.stdout)
+        self.assertIn("needle still present", proc.stdout)
 
     def test_missing_generate_state(self):
         proc = run_smoke("check", self.env)
@@ -143,10 +143,10 @@ class TestCheck(SmokeCase):
             json.dump({"sessione": {"model": "m", "context_tokens": 50_000}}, f)
         proc = run_smoke("check", self.env)
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
-        self.assertIn("avviso a soglia bassa: PASS", proc.stdout)
-        self.assertIn("one-shot per sessione: PASS", proc.stdout)
-        self.assertIn("subagent muto: PASS", proc.stdout)
-        self.assertIn("soglia alta muta: PASS", proc.stdout)
+        self.assertIn("warning at low threshold: PASS", proc.stdout)
+        self.assertIn("one-shot per session: PASS", proc.stdout)
+        self.assertIn("subagent silent: PASS", proc.stdout)
+        self.assertIn("high threshold silent: PASS", proc.stdout)
 
 
 if __name__ == "__main__":

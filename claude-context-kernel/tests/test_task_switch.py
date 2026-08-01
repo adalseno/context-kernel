@@ -65,14 +65,14 @@ class TestTaskSwitch(unittest.TestCase):
         ctx = self._ctx(_util.run_hook(
             _util.SYMPTOM, _payload(TRACEBACK_A, self.repo), env=self.env))
         self.assertIn("working set", ctx)
-        self.assertNotIn("CAMBIO TASK", ctx)
+        self.assertNotIn("TASK SWITCH", ctx)
 
     def test_second_different_symptom_declares_switch_with_diff(self):
         _util.run_hook(_util.SYMPTOM, _payload(TRACEBACK_A, self.repo),
                        env=self.env)
         ctx = self._ctx(_util.run_hook(
             _util.SYMPTOM, _payload(TRACEBACK_B, self.repo), env=self.env))
-        self.assertIn("CAMBIO TASK", ctx)
+        self.assertIn("TASK SWITCH", ctx)
         self.assertIn("web.py", ctx)                   # diff: file nuovi di Q2
 
     def test_same_symptom_twice_is_not_a_switch(self):
@@ -80,7 +80,7 @@ class TestTaskSwitch(unittest.TestCase):
                        env=self.env)
         ctx = self._ctx(_util.run_hook(
             _util.SYMPTOM, _payload(TRACEBACK_A, self.repo), env=self.env))
-        self.assertNotIn("CAMBIO TASK", ctx)
+        self.assertNotIn("TASK SWITCH", ctx)
 
     def test_other_session_is_not_a_switch(self):
         _util.run_hook(_util.SYMPTOM,
@@ -89,7 +89,7 @@ class TestTaskSwitch(unittest.TestCase):
         ctx = self._ctx(_util.run_hook(
             _util.SYMPTOM, _payload(TRACEBACK_B, self.repo, session="s-due"),
             env=self.env))
-        self.assertNotIn("CAMBIO TASK", ctx)
+        self.assertNotIn("TASK SWITCH", ctx)
 
     def test_switch_detector_disabled_via_env(self):
         _util.run_hook(_util.SYMPTOM, _payload(TRACEBACK_A, self.repo),
@@ -98,7 +98,7 @@ class TestTaskSwitch(unittest.TestCase):
             _util.SYMPTOM, _payload(TRACEBACK_B, self.repo),
             env={**self.env, "CK_TASK_SWITCH": "0"}))
         self.assertIn("working set", ctx)              # la slice arriva comunque
-        self.assertNotIn("CAMBIO TASK", ctx)
+        self.assertNotIn("TASK SWITCH", ctx)
 
 
 if __name__ == "__main__":

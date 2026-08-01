@@ -35,7 +35,7 @@ class TestDdmin(unittest.TestCase):
         r = _run(text, "grep -q AGO {}", "--unit", "line")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stdout.strip(), "AGO")
-        self.assertIn("1-minimale", r.stderr)
+        self.assertIn("1-minimal", r.stderr)
 
     def test_char_mode_reduces_to_substring(self):
         # riproduce sse il candidato contiene la sottostringa "XZ"
@@ -59,7 +59,7 @@ class TestDdmin(unittest.TestCase):
     def test_full_input_not_reproducing_errors(self):
         r = _run("nessun ago qui", "grep -q INTROVABILE {}", "--unit", "line")
         self.assertEqual(r.returncode, 2)
-        self.assertIn("non riproduce", r.stderr)
+        self.assertIn("does not reproduce", r.stderr)
 
     def test_custom_fail_exit(self):
         """Oracolo che segnala 'riproduce' con exit 3."""

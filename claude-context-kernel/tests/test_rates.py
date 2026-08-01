@@ -13,13 +13,13 @@ import _util
 
 MANIFEST = "\n".join([
     "# kernel repo slice — manifest",
-    "operatore: T2@test",
+    "operator: T2@test",
     "repo: /repo",
     "",
-    "## seed (dal sintomo)",
+    "## seeds (from the symptom)",
     "- app.md  <- citato nel sintomo",
     "",
-    "## file della slice (per rilevanza)",
+    "## slice files (per rilevanza)",
     "- app.md — seed",
     "",
     "## fuori slice (modello page-fault)",
@@ -46,8 +46,8 @@ def _fault_transcript(path: str) -> None:
              "text": "[context-kernel] Sintomo rilevato\n" + MANIFEST}]}},
         _tool_use("t1", {"file_path": "/repo/app.md"}),
         _tool_result("t1", "x" * 100 +
-                     "\n[context-kernel: elise righe 10-90: 80 righe]"
-                     "\n[copia ELISA: per l'integrale rileggi questo file]"),
+                     "\n[context-kernel: elided righe 10-90: 80 righe]"
+                     "\n[ELIDED copy: for the full text read this file again]"),
         _tool_use("t2", {"file_path": "/repo/app.md"}),
         _tool_result("t2", "y" * 400),
     ]
@@ -74,7 +74,7 @@ class TestApplyRates(unittest.TestCase):
         for name in ("s1.jsonl", "s2.jsonl"):
             _fault_transcript(os.path.join(self.tmp, name))
         out = self._run(self.tmp, "--aggregate", "--apply-rates").stdout
-        self.assertIn("attuazione esplicita", out)
+        self.assertIn("explicit application", out)
         self.assertIn(".md -> relax", out)
         with open(self.rates) as f:
             st = json.load(f)
@@ -94,7 +94,7 @@ class TestApplyRates(unittest.TestCase):
     def test_single_occurrence_writes_nothing(self):
         _fault_transcript(os.path.join(self.tmp, "s1.jsonl"))
         out = self._run(self.tmp, "--aggregate", "--apply-rates").stdout
-        self.assertIn("nessun fault ricorrente", out)
+        self.assertIn("no recurrent fault", out)
         self.assertFalse(os.path.exists(self.rates))
 
 
@@ -124,7 +124,7 @@ class TestCompressReadsRates(unittest.TestCase):
         self._write_rates({".log": {"mode": "raw"}})
         proc = self._compress("/tmp/grande.log")
         self.assertEqual(json.loads(proc.stdout.strip()), {})
-        self.assertIn("tasso appreso", proc.stderr)
+        self.assertIn("learned rate", proc.stderr)
 
     def test_relax_scale_raises_threshold(self):
         # scala enorme: la soglia MIN_TOKENS*scala supera l'output -> no-op.

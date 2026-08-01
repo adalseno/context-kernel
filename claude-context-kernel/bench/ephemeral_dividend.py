@@ -122,9 +122,9 @@ def main() -> int:
     ap.add_argument("--transcripts",
                     default=os.path.expanduser("~/.claude/projects"))
     ap.add_argument("--scale", type=float, default=0.5,
-                    help="CK_EPHEMERAL_SCALE del braccio B")
+                    help="CK_EPHEMERAL_SCALE for arm B")
     ap.add_argument("--adaptive", type=float, default=0.75,
-                    help="scala adattiva live comune ai due bracci")
+                    help="live adaptive scale shared by both arms")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
 
@@ -170,7 +170,7 @@ def main() -> int:
                         tot[arm]["lost_by_tool"].get(key, 0) + lost)
 
     if n == 0:
-        print("corpus vuoto: nessun output effimero trovato", file=sys.stderr)
+        print("empty corpus: no ephemeral output found", file=sys.stderr)
         return 1
     res = {
         "outputs": n, "per_tool": per_tool, "token_before": before_tot,
@@ -190,15 +190,15 @@ def main() -> int:
         print(json.dumps(res, indent=2))
         return 0
     a, b = res["arms"]["A"], res["arms"]["B"]
-    print(f"corpus: {n} output effimeri reali ({per_tool}), "
-          f"~{before_tot:,} token grezzi")
-    print(f"A baseline  (scala {a['scale']}): ~{a['token_after']:,} token "
-          f"(-{a['saving_pct']}%), {a['elisions']} elisioni, "
-          f"{a['signal_lines_lost']} righe di segnale perse")
-    print(f"B dividendo (scala {b['scale']}): ~{b['token_after']:,} token "
-          f"(-{b['saving_pct']}%), {b['elisions']} elisioni, "
-          f"{b['signal_lines_lost']} righe di segnale perse")
-    print(f"extra risparmio di B: ~{res['extra_saving_tokens']:,} token")
+    print(f"corpus: {n} real ephemeral outputs ({per_tool}), "
+          f"~{before_tot:,} raw tokens")
+    print(f"A baseline (scale {a['scale']}): ~{a['token_after']:,} tokens "
+          f"(-{a['saving_pct']}%), {a['elisions']} elisions, "
+          f"{a['signal_lines_lost']} signal lines lost")
+    print(f"B dividend (scale {b['scale']}): ~{b['token_after']:,} tokens "
+          f"(-{b['saving_pct']}%), {b['elisions']} elisions, "
+          f"{b['signal_lines_lost']} signal lines lost")
+    print(f"extra savings from B: ~{res['extra_saving_tokens']:,} tokens")
     return 0
 
 

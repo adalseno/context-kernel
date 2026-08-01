@@ -1,27 +1,28 @@
 #!/usr/bin/env python3
 """
-recall.py — page fault MIRATO sugli output effimeri parcheggiati.
+recall.py — TARGETED page fault over parked ephemeral outputs.
 
-Quando T1 elide un output Bash/MCP/WebFetch, l'originale integrale viene
-parcheggiato (compress.py:park_output) e il footer dichiara la chiave.
-Questo CLI recupera SOLO cio' che serve — grep o range di righe — cosi'
-il fault costa i token della domanda, non dell'output intero. Nessun
-ranking, nessun modello: grep e aritmetica, deterministici.
+When T1 elides a Bash/MCP/WebFetch output, the full original is parked
+(compress.py:park_output) and the footer states its key. This CLI recovers
+ONLY what is needed — a grep or a line range — so the fault costs the tokens
+of the question, not of the whole output. No ranking, no model: grep and
+arithmetic, both deterministic.
 
-    python3 recall.py --list                     # cosa c'e' in parcheggio
-    python3 recall.py --search 'ERROR|WARN'      # cerca in TUTTO il parcheggio
-    python3 recall.py KEY --grep 'ERROR|WARN'    # righe matchanti (+contesto)
-    python3 recall.py KEY --lines 120-180        # range esatto
-    python3 recall.py KEY --head 40              # testa
-    python3 recall.py KEY --all                  # integrale (paghi tutto)
+    python3 recall.py --list                     # what is parked
+    python3 recall.py --search 'ERROR|WARN'      # search the WHOLE parking lot
+    python3 recall.py KEY --grep 'ERROR|WARN'    # matching lines (+context)
+    python3 recall.py KEY --lines 120-180        # exact range
+    python3 recall.py KEY --head 40              # head
+    python3 recall.py KEY --all                  # in full (you pay for it all)
 
---search e' il "recall storage" della sessione: quando non sai in QUALE output
-parcheggiato sta cio' che cerchi, lo trova in tutti e ti da' la chiave per il
-recall mirato. E' l'inverso della proiezione reso navigabile, non un operatore:
-grep su tutti i blob, deterministico, paga solo i match mostrati.
+--search is the session's "recall storage": when you do not know WHICH parked
+output holds what you are after, it finds it across all of them and gives you
+the key for a targeted recall. It is the inverse of the projection made
+navigable, not an operator: grep over every blob, deterministic, and you pay
+only for the matches shown.
 
-Suggerimento: aggiungi `# ck:raw` al comando per esentare l'output del
-recall dalla compressione T1 (e' gia' una selezione mirata).
+Hint: add `# ck:raw` to the command to exempt the recall output from T1
+compression (it is already a targeted selection).
 """
 from __future__ import annotations
 
@@ -87,10 +88,10 @@ def _search_all(st: dict, pattern: str, context: int) -> int:
     try:
         rx = re.compile(pattern)
     except re.error as e:
-        print(f"regex non valida: {e}", file=sys.stderr)
+        print(f"invalid regex: {e}", file=sys.stderr)
         return 2
     if not st:
-        print("parcheggio vuoto")
+        print("parking lot empty")
         return 0
     now = time.time()
     out: list[str] = []
@@ -103,9 +104,9 @@ def _search_all(st: dict, pattern: str, context: int) -> int:
             continue
         matched += 1
         age = int((now - e.get("ts", now)) / 60)
-        trunc = " [TRONCATO]" if e.get("trunc") else ""
-        out.append(f"== {k}  {e.get('tool', '?')}  {age}min fa  "
-                   f"{e.get('cmd', '')[:60]}  ({len(idx)} match){trunc} ==")
+        trunc = " [TRUNCATED]" if e.get("trunc") else ""
+        out.append(f"== {k}  {e.get('tool', '?')}  {age}min ago  "
+                   f"{e.get('cmd', '')[:60]}  ({len(idx)} matches){trunc} ==")
         keep: set[int] = set()
         for i in idx:
             keep.update(range(max(0, i - context),
@@ -114,8 +115,8 @@ def _search_all(st: dict, pattern: str, context: int) -> int:
         capped = False
         for i in sorted(keep):
             if shown >= MAX_GREP_LINES:
-                out.append(f"  … cap {MAX_GREP_LINES} righe: restringi la regex "
-                           "o usa `recall KEY --grep`")
+                out.append(f"  … capped at {MAX_GREP_LINES} lines: narrow the regex "
+                           "or use `recall KEY --grep`")
                 capped = True
                 break
             if i != last + 1:
@@ -127,8 +128,8 @@ def _search_all(st: dict, pattern: str, context: int) -> int:
         if capped:
             break
     if not matched:
-        print(f"nessun output parcheggiato matcha /{pattern}/ "
-              f"({len(st)} in parcheggio)")
+        print(f"no parked output matches /{pattern}/ "
+              f"({len(st)} parked)")
         return 0
     text = "\n".join(out)
     print(text)
@@ -138,10 +139,10 @@ def _search_all(st: dict, pattern: str, context: int) -> int:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("key", nargs="?", help="chiave dal footer [parcheggiato: ...]")
+    ap.add_argument("key", nargs="?", help="key from the [parked: ...] footer")
     ap.add_argument("--grep", metavar="REGEX")
     ap.add_argument("--search", metavar="REGEX",
-                    help="cerca in TUTTI gli output parcheggiati (recall storage)")
+                    help="search ALL parked outputs (recall storage)")
     ap.add_argument("-C", "--context", type=int, default=GREP_CONTEXT)
     ap.add_argument("--lines", metavar="A-B")
     ap.add_argument("--head", type=int, metavar="N")
@@ -154,36 +155,36 @@ def main() -> int:
         return _search_all(st, args.search, args.context)
     if args.list or not args.key:
         if not st:
-            print("parcheggio vuoto")
+            print("parking lot empty")
             return 0
         now = time.time()
         for k, e in sorted(st.items(), key=lambda kv: -kv[1].get("ts", 0)):
             age = int((now - e.get("ts", now)) / 60)
-            trunc = " [TRONCATO al parcheggio]" if e.get("trunc") else ""
-            print(f"{k}  {e.get('tool', '?'):<10} {age:>4}min fa  "
+            trunc = " [TRUNCATED at parking time]" if e.get("trunc") else ""
+            print(f"{k}  {e.get('tool', '?'):<10} {age:>4}min ago  "
                   f"{e.get('cmd', '')[:80]}{trunc}")
         return 0
 
     entry = st.get(args.key)
     if not entry:
-        print(f"chiave '{args.key}' assente o scaduta (TTL). "
-              "`--list` per vedere il parcheggio.", file=sys.stderr)
+        print(f"key '{args.key}' missing or expired (TTL). "
+              "Use `--list` to see the parking lot.", file=sys.stderr)
         return 2
     lines = _text(entry).split("\n")
     if entry.get("trunc"):
-        print("# NOTA: originale TRONCATO al parcheggio (oltre il cap)",
+        print("# NOTE: original TRUNCATED at parking time (over the cap)",
               file=sys.stderr)
 
     if args.grep:
         try:
             rx = re.compile(args.grep)
         except re.error as e:
-            print(f"regex non valida: {e}", file=sys.stderr)
+            print(f"invalid regex: {e}", file=sys.stderr)
             return 2
         hit_idx = [i for i, ln in enumerate(lines) if rx.search(ln)]
         if not hit_idx:
-            print(f"nessuna riga matcha /{args.grep}/ "
-                  f"({len(lines)} righe parcheggiate)")
+            print(f"no line matches /{args.grep}/ "
+                  f"({len(lines)} lines parked)")
             return 0
         keep: set[int] = set()
         for i in hit_idx:
@@ -194,8 +195,8 @@ def main() -> int:
         last = -2
         for i in sorted(keep):
             if shown >= MAX_GREP_LINES:
-                out.append(f"… altri match oltre il cap di {MAX_GREP_LINES} "
-                           "righe (restringi la regex o usa --lines)")
+                out.append(f"… more matches beyond the cap of {MAX_GREP_LINES} "
+                           "lines (narrow the regex or use --lines)")
                 break
             if i != last + 1:
                 out.append("…")
@@ -210,7 +211,7 @@ def main() -> int:
     if args.lines:
         m = re.fullmatch(r"(\d+)-(\d+)", args.lines.strip())
         if not m:
-            print("--lines vuole il formato A-B (1-based)", file=sys.stderr)
+            print("--lines expects the A-B format (1-based)", file=sys.stderr)
             return 2
         a, b = int(m.group(1)), int(m.group(2))
         out = [f"{i}\t{lines[i - 1]}"
@@ -229,8 +230,8 @@ def main() -> int:
     n = args.head or 40
     out = [f"{i + 1}\t{lines[i]}" for i in range(min(n, len(lines)))]
     if len(lines) > n:
-        out.append(f"… {len(lines) - n} righe restanti "
-                   "(--grep, --lines A-B, oppure --all per l'integrale)")
+        out.append(f"… {len(lines) - n} lines remaining "
+                   "(--grep, --lines A-B, or --all for the whole thing)")
     text = "\n".join(out)
     print(text)
     _log_fault(text)

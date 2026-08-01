@@ -51,7 +51,7 @@ def savings_line() -> str:
                     n += 1
                     saved += int(parts[4])
         if n:
-            return f" Finora: {n} compressioni, ~{saved:,} token risparmiati."
+            return f" So far: {n} compressions, ~{saved:,} tokens saved."
     except Exception:                          # noqa: BLE001
         pass
     return ""
@@ -66,7 +66,7 @@ def ab_line() -> str:
         if n:
             root = (os.environ.get("CLAUDE_PLUGIN_ROOT")
                     or os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            return (f" A/B: {n} campioni in attesa di giudizio — `python3 "
+            return (f" A/B: {n} samples awaiting judgement — `python3 "
                     f"{os.path.join(root, 'hooks', 'ab_verify.py')}`.")
     except Exception:                          # noqa: BLE001
         pass
@@ -86,11 +86,11 @@ def canary_line() -> str:
             return ""
         streak = st.get("heal_streak", 0)
         ndeg = len(st.get("degraded_sessions", []))
-        deg = f", {ndeg} sessioni in auto-degrade" if ndeg else ""
-        return (f" Canary: {fl} failure aperti "
-                f"(ultimo: {st.get('last_failure')}), {streak} compressioni "
-                f"verificate OK dopo{deg} — se l'evidenza continua si "
-                "auto-riconoscono, se ricompaiono indaga.")
+        deg = f", {ndeg} sessions auto-degraded" if ndeg else ""
+        return (f" Canary: {fl} open failures "
+                f"(last: {st.get('last_failure')}), {streak} compressions "
+                f"verified OK since{deg} — if the evidence keeps up they "
+                "auto-acknowledge; if they reappear, investigate.")
     except Exception:                          # noqa: BLE001
         pass
     return ""
@@ -111,14 +111,14 @@ def compact_restore(payload: dict) -> str:
             rec = max(st.values(), key=lambda r: r.get("ts", 0), default=None)
         if not rec or time.time() - rec.get("ts", 0) > COMPACT_MAX_AGE_S:
             return ""
-        parts = ["\n[context-kernel] TS(Q) sopravvissuto alla compaction — "
-                 "il riassunto e' una proiezione NON indicizzata dal task; "
-                 "questo e' lo stato del task fotografato prima:"]
+        parts = ["\n[context-kernel] TS(Q) survived the compaction — "
+                 "the summary is a projection NOT indexed by the task; "
+                 "this is the task state snapshotted beforehand:"]
         if rec.get("charter_head"):
-            parts.append("--- carta del task (T3) attiva ---\n"
+            parts.append("--- active task charter (T3) ---\n"
                          + rec["charter_head"])
         if rec.get("slice_head"):
-            parts.append("--- working set (T2) attivo ---\n"
+            parts.append("--- active working set (T2) ---\n"
                          + rec["slice_head"])
         return "\n".join(parts)
     except Exception:                          # noqa: BLE001
@@ -155,15 +155,14 @@ def resume_restore(payload: dict) -> str:
         slice_head = rec.get("slice_head") or ""
         if not charter_head and not slice_head:
             return ""
-        parts = ["\n[context-kernel] TS(Q) della sessione precedente su "
-                 "questo repo (il riavvio e' una discontinuita' come la "
-                 "compaction — il task state sopravvive a entrambe). Se il "
-                 "task e' cambiato, ignora ed eventualmente pulisci con "
-                 "charter.py clear:"]
+        parts = ["\n[context-kernel] TS(Q) from the previous session on this "
+                 "repo (a restart is a discontinuity just like a compaction — "
+                 "the task state survives both). If the task has changed, "
+                 "ignore this and optionally clear it with charter.py clear:"]
         if charter_head:
-            parts.append("--- carta del task (T3) attiva ---\n" + charter_head)
+            parts.append("--- active task charter (T3) ---\n" + charter_head)
         if slice_head:
-            parts.append("--- working set (T2) dell'ultima sessione ---\n"
+            parts.append("--- working set (T2) from the last session ---\n"
                          + slice_head)
         return "\n".join(parts)
     except Exception:                          # noqa: BLE001
@@ -182,12 +181,13 @@ def main() -> int:
         print("{}")
         return 0
     ctx = (
-        "[context-kernel] attivo: gli output lunghi dei tool arrivano "
-        "compressi (footer `[context-kernel: ...]`). Page fault: se una Read "
-        "arriva ELISA o marcata INVARIATO, rileggere lo stesso file la fa "
-        "passare integrale. Per bug con sintomo concreto c'e' la skill "
-        "kernel-repo-slice (T2); con un traceback nel prompt la slice viene "
-        "iniettata da sola." + savings_line() + ab_line() + canary_line()
+        "[context-kernel] active: long tool outputs arrive compressed "
+        "(footer `[context-kernel: ...]`). Page fault: if a Read arrives "
+        "ELIDED or marked UNCHANGED, reading the same file again lets it "
+        "through in full. For bugs with a concrete symptom there is the "
+        "kernel-repo-slice skill (T2); with a traceback in the prompt the "
+        "slice is injected automatically." + savings_line() + ab_line()
+        + canary_line()
     )
     if payload.get("source") == "compact":
         ctx += compact_restore(payload)

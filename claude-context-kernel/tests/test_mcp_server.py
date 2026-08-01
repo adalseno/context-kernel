@@ -97,7 +97,7 @@ class TestMcpServer(unittest.TestCase):
         self.assertIs(res["isError"], False)
         text = res["content"][0]["text"]
         self.assertIn("main.py — seed", text)
-        self.assertIn("util.py — dipendenza", text)
+        self.assertIn("util.py — dependency", text)
         self.assertNotIn("loner.py", text)
 
     def test_tools_call_returns_slice_only(self):
@@ -117,7 +117,7 @@ class TestMcpServer(unittest.TestCase):
     def test_missing_file_is_tool_error_not_crash(self):
         res = self.by_id[6]["result"]
         self.assertIs(res["isError"], True)
-        self.assertIn("non trovato", res["content"][0]["text"])
+        self.assertIn("not found", res["content"][0]["text"])
 
     def test_ping(self):
         self.assertEqual(self.by_id[7]["result"], {})

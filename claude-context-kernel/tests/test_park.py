@@ -55,7 +55,7 @@ class TestPark(unittest.TestCase):
     def test_elided_bash_output_is_parked_with_declared_recall(self):
         proc = self._compress(_noisy_with_needle())
         key = self._park_key(proc.stdout)
-        self.assertIn("parcheggiato", proc.stdout)
+        self.assertIn("parked", proc.stdout)
         with open(self.park, encoding="utf-8") as f:
             st = json.load(f)
         self.assertIn(key, st)
@@ -89,13 +89,13 @@ class TestPark(unittest.TestCase):
 
     def test_kill_switch(self):
         proc = self._compress(_noisy_with_needle(), env={"CK_PARK": "0"})
-        self.assertNotIn("parcheggiato", proc.stdout)
+        self.assertNotIn("parked", proc.stdout)
         self.assertFalse(os.path.exists(self.park))
 
     def test_recall_unknown_key_exits_2(self):
         rec = _util.run_script(RECALL, "", args=["deadbeef00"], env=self.env)
         self.assertEqual(rec.returncode, 2)
-        self.assertIn("assente o scaduta", rec.stderr)
+        self.assertIn("missing or expired", rec.stderr)
 
     # --- recall storage di sessione: --search cross-parcheggio (1.24.0) -------
 
@@ -131,17 +131,17 @@ class TestPark(unittest.TestCase):
         rec = _util.run_script(RECALL, "", args=["--search", "NIENTE_QUI"],
                                env=self.env)
         self.assertEqual(rec.returncode, 0)
-        self.assertIn("nessun output parcheggiato matcha", rec.stdout)
+        self.assertIn("no parked output matches", rec.stdout)
 
     def test_search_empty_park(self):
         rec = _util.run_script(RECALL, "", args=["--search", "x"], env=self.env)
-        self.assertIn("parcheggio vuoto", rec.stdout)
+        self.assertIn("parking lot empty", rec.stdout)
 
     def test_search_bad_regex_exits_2(self):
         self._seed_park({"aaa1110000": ("x", "Bash", "ls")})
         rec = _util.run_script(RECALL, "", args=["--search", "("], env=self.env)
         self.assertEqual(rec.returncode, 2)
-        self.assertIn("regex non valida", rec.stderr)
+        self.assertIn("invalid regex", rec.stderr)
 
     def test_search_logs_fault_when_enabled(self):
         """--search e' un page fault sul parcheggio: col ledger attivo registra
@@ -186,8 +186,8 @@ class TestCompactAdvisor(unittest.TestCase):
         self._tap(190_000)                     # finestra stimata ~268k -> ~71%
         out = self._run()
         ctx = out["hookSpecificOutput"]["additionalContext"]
-        self.assertIn("/compact MANUALE", ctx)
-        self.assertIn("una-tantum", ctx)
+        self.assertIn("MANUAL /compact", ctx)
+        self.assertIn("One-off", ctx)
         self.assertEqual(self._run(), {})      # seconda volta: silenzio
 
     def test_silent_below_threshold(self):
@@ -234,7 +234,7 @@ class TestEphemeralDividend(unittest.TestCase):
                               env=self.env)
         out = _util.hook_json(proc)
         self.assertIn("updatedToolOutput", out.get("hookSpecificOutput", {}))
-        self.assertIn("parcheggiato", proc.stdout)        # inversa dichiarata
+        self.assertIn("parked", proc.stdout)        # inversa dichiarata
         proc_off = _util.run_hook(_util.COMPRESS, _util.bash_payload(self._medium()),
                                   env={**self.env, "CK_PARK": "0"})
         self.assertEqual(_util.hook_json(proc_off), {})   # niente inversa -> raw
@@ -253,7 +253,7 @@ class TestEphemeralDividend(unittest.TestCase):
         big = "\n".join(_util.unique_lines(300))
         def start_of_elision(env):
             proc = _util.run_hook(_util.COMPRESS, _util.bash_payload(big), env=env)
-            m = re.search(r"elise righe (\d+)-", proc.stdout)
+            m = re.search(r"elided lines (\d+)-", proc.stdout)
             self.assertIsNotNone(m, proc.stdout[-300:])
             return int(m.group(1))
         base = start_of_elision({**self.env, "CK_EPHEMERAL_SCALE": "1.0"})

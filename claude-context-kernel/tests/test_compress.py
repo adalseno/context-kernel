@@ -10,7 +10,7 @@ import unittest
 
 import _util
 
-FOOTER = re.compile(r"\[context-kernel: \d+ -> \d+ token, -\d+%\]")
+FOOTER = re.compile(r"\[context-kernel: \d+ -> \d+ tokens, -\d+%\]")
 
 
 def _load_module():
@@ -67,7 +67,7 @@ class TestUnitFunctions(unittest.TestCase):
         lines[60] = "ERROR: qualcosa di rotto a meta' output"
         out = self.ck.signal_preserving_truncate(lines)
         self.assertIn(lines[60], out)
-        self.assertTrue(any("[context-kernel: elise" in l for l in out))
+        self.assertTrue(any("[context-kernel: elided" in l for l in out))
         self.assertLess(len(out), len(lines))
 
     def test_truncate_noop_under_budget(self):
@@ -319,7 +319,7 @@ class TestHookContract(unittest.TestCase):
         insieme gli hook si sommano — un output che porta gia' il footer
         in coda NON va ricompresso."""
         already = ("\n".join(["riga di rumore identica"] * 300)
-                   + "\n\n[context-kernel: 2000 -> 500 token, -75%]")
+                   + "\n\n[context-kernel: 2000 -> 500 tokens, -75%]")
         proc = _util.run_hook(_util.COMPRESS, _util.bash_payload(already), env=self.env)
         self.assertEqual(_util.hook_json(proc), {})
 
@@ -522,7 +522,7 @@ class TestCodeAwareReads(unittest.TestCase):
         got = _util.hook_json(proc)["hookSpecificOutput"]["updatedToolOutput"]
         got = got["file"]["content"]
         self.assertIn("def funzione_30(x):", got)      # struttura oltre HEAD
-        self.assertIn("righe di corpo", got)           # marker code-aware
+        self.assertIn("lines of body", got)           # marker code-aware
         self.assertNotIn("except Exception", got)      # non piu' "segnale"
 
     def test_log_read_still_keeps_error_lines(self):
@@ -553,7 +553,7 @@ class TestCodeAwareReads(unittest.TestCase):
         proc = self._run(content, "/tmp/ArticleModel.php")
         got = _util.hook_json(proc)["hookSpecificOutput"]["updatedToolOutput"]
         got = got["file"]["content"]
-        self.assertIn("righe di corpo", got)               # compressione avvenuta
+        self.assertIn("lines of body", got)               # compressione avvenuta
         self.assertIn("use Joomla\\CMS\\Factory;", got)
         self.assertIn("use Joomla\\CMS\\MVC\\Model\\BaseDatabaseModel;", got)
         self.assertIn("namespace Acme\\Component\\Site\\Model;", got)
@@ -565,7 +565,7 @@ class TestCodeAwareReads(unittest.TestCase):
         proc = self._run("\n".join(_util.unique_lines(300)), "/tmp/run.log")
         got = _util.hook_json(proc)["hookSpecificOutput"]["updatedToolOutput"]
         content = got["file"]["content"]
-        self.assertIn("elise righe 46-280:", content)      # HEAD 45, TAIL 20
+        self.assertIn("elided lines 46-280:", content)      # HEAD 45, TAIL 20
 
     def test_elision_marker_declares_numeric_continuity(self):
         """Dal primo DEGRADATO A/B: log numerato eliso -> il marker dichiara
@@ -575,7 +575,7 @@ class TestCodeAwareReads(unittest.TestCase):
                  for i in range(300)]
         proc = self._run("\n".join(lines), "/tmp/migrate.log")
         got = _util.hook_json(proc)["hookSpecificOutput"]["updatedToolOutput"]
-        self.assertIn("numerazione continua 45→279",
+        self.assertIn("unbroken numbering 45→279",
                       got["file"]["content"])
 
     def test_no_false_continuity_on_irregular_numbers(self):
@@ -628,8 +628,8 @@ class TestElisionPageFault(unittest.TestCase):
         proc = self._read(self.content)
         upd = _util.hook_json(proc)["hookSpecificOutput"]["updatedToolOutput"]
         content = upd["file"]["content"]
-        self.assertIn("elise", content)
-        self.assertIn("copia ELISA", content)              # footer azionabile
+        self.assertIn("elided", content)
+        self.assertIn("ELIDED copy", content)              # footer azionabile
         self.assertRegex(content, FOOTER)                  # canary-compatibile
         with open(self.reads, encoding="utf-8") as f:
             st = json.load(f)
@@ -662,7 +662,7 @@ class TestElisionPageFault(unittest.TestCase):
         proc = self._read(self.content)                    # rilettura normale
         out = _util.hook_json(proc)
         upd = out["hookSpecificOutput"]["updatedToolOutput"]
-        self.assertIn("INVARIATO", upd["file"]["content"])
+        self.assertIn("UNCHANGED", upd["file"]["content"])
 
 
 class TestDeltaReads(unittest.TestCase):
@@ -708,7 +708,7 @@ class TestDeltaReads(unittest.TestCase):
         self._read(self.content)
         proc = self._read(self.content)
         upd = _util.hook_json(proc)["hookSpecificOutput"]["updatedToolOutput"]
-        self.assertIn("INVARIATO", upd["file"]["content"])
+        self.assertIn("UNCHANGED", upd["file"]["content"])
         self.assertRegex(upd["file"]["content"], FOOTER)   # canary-compatibile
 
     def test_third_read_after_marker_passes_full(self):
@@ -734,7 +734,7 @@ class TestDeltaReads(unittest.TestCase):
                                        "riga MODIFICATA quaranta")
         proc = self._read(changed)
         upd = _util.hook_json(proc)["hookSpecificOutput"]["updatedToolOutput"]
-        self.assertIn("CAMBIATO", upd["file"]["content"])
+        self.assertIn("CHANGED", upd["file"]["content"])
 
     def test_parallel_hooks_dont_lose_records(self):
         """Sessioni/hook concorrenti sullo stesso stato: col lock advisory
@@ -768,7 +768,7 @@ class TestDeltaReads(unittest.TestCase):
         proc = self._read(changed)
         upd = _util.hook_json(proc)["hookSpecificOutput"]["updatedToolOutput"]
         body = upd["file"]["content"]
-        self.assertIn("CAMBIATO", body)
+        self.assertIn("CHANGED", body)
         self.assertIn("+40\triga MODIFICATA quaranta", body)
         self.assertIn("@@", body)
         self.assertLess(len(body), len(changed) // 2)      # il diff conviene

@@ -71,7 +71,7 @@ def check():
     if v >= (3, 8):
         ok(f"Python {v.major}.{v.minor}.{v.micro}")
     else:
-        ko(f"Python {v.major}.{v.minor} < 3.8 richiesto")
+        ko(f"Python {v.major}.{v.minor} < 3.8 required")
 
     # 2. Hook registrati (il file vive in hooks/hooks.json; alcune installazioni
     #    lo tengono sotto .claude-plugin/ — accetta entrambe le posizioni).
@@ -80,7 +80,7 @@ def check():
                      os.path.join(PLUGIN_ROOT, ".claude-plugin", "hooks.json"))
          if os.path.isfile(p)), None)
     if hooks_json is None:
-        ko("hooks.json assente — hook non registrati")
+        ko("hooks.json missing — hooks not registered")
     else:
         try:
             with open(hooks_json, encoding="utf-8") as fh:
@@ -88,22 +88,22 @@ def check():
         except Exception:                          # noqa: BLE001
             body = ""
         if "compress.py" in body:
-            ok("hook registrati (hooks.json cita compress.py)")
+            ok("hooks registered (hooks.json references compress.py)")
         else:
-            ko("hooks.json non cita compress.py — compressione non agganciata")
+            ko("hooks.json does not reference compress.py — compression not wired up")
 
     # 3. Script core
     missing = [s for s in CORE_SCRIPTS if not os.path.isfile(os.path.join(HOOKS, s))]
     if missing:
-        ko(f"script mancanti in hooks/: {', '.join(missing)}")
+        ko(f"scripts missing from hooks/: {', '.join(missing)}")
     else:
-        ok(f"script core presenti ({len(CORE_SCRIPTS)})")
+        ok(f"core scripts present ({len(CORE_SCRIPTS)})")
 
     # 4. MCP server
     if os.path.isfile(os.path.join(PLUGIN_ROOT, "mcp", "server.py")):
-        ok("MCP server presente (mcp/server.py)")
+        ok("MCP server present (mcp/server.py)")
     else:
-        warn("mcp/server.py assente — gli slice via MCP non sono disponibili")
+        warn("mcp/server.py missing — slices over MCP are unavailable")
 
     # 5. Superficie comandi
     cmd_dir = os.path.join(PLUGIN_ROOT, "commands")
@@ -112,42 +112,42 @@ def check():
         have = {f[:-3] for f in os.listdir(cmd_dir) if f.endswith(".md")}
     miss_cmd = [c for c in EXPECTED_COMMANDS if c not in have]
     if not miss_cmd:
-        ok(f"comandi /ck-* presenti ({len(EXPECTED_COMMANDS)})")
+        ok(f"/ck-* commands present ({len(EXPECTED_COMMANDS)})")
     else:
-        warn(f"comandi assenti: {', '.join('/'+c for c in miss_cmd)}")
+        warn(f"commands missing: {', '.join('/'+c for c in miss_cmd)}")
 
     # 5b. Superficie a linguaggio naturale (skill model-invocable)
     if os.path.isfile(os.path.join(PLUGIN_ROOT, "skills", "kernel-ops", "SKILL.md")):
-        ok("superficie a linguaggio naturale presente (skill kernel-ops)")
+        ok("natural-language surface present (kernel-ops skill)")
     else:
-        warn("skill kernel-ops assente — niente accesso a parole, solo /ck-*")
+        warn("kernel-ops skill missing — no natural-language access, only /ck-*")
 
     # 6. Canary
     st = _load_json(CANARY_STATE)
     if st is None:
-        rows.append(("--", "canary: nessuno stato ancora (plugin non ha compresso qui)"))
+        rows.append(("--", "canary: no state yet (the plugin has not compressed here)"))
     else:
         failed = st.get("failed", 0)
         verified = st.get("verified", 0)
         ndeg = len(st.get("degraded_sessions", []))
         if failed:
-            ko(f"canary: {failed} compressioni NON applicate dall'harness — "
-               "risparmi sovrastimati (indaga, poi /ck-savings reset-canary)")
+            ko(f"canary: {failed} compressions NOT applied by the harness — "
+               "savings overstated (investigate, then /ck-savings reset-canary)")
         elif ndeg:
-            warn(f"canary: {ndeg} sessioni in auto-degrade (compressione sospesa)")
+            warn(f"canary: {ndeg} sessions auto-degraded (compression suspended)")
         else:
-            ok(f"canary verde ({verified} compressioni verificate applicate)")
+            ok(f"canary green ({verified} compressions verified as applied)")
 
     # 7. Coda A/B
     ab = _load_json(AB_STATE)
     if ab is None:
-        rows.append(("--", "A/B: nessuno stato ancora"))
+        rows.append(("--", "A/B: no state yet"))
     else:
         pend = len(ab.get("pending", []))
         if pend:
-            warn(f"A/B: {pend} campioni in coda da giudicare (/ck-verify)")
+            warn(f"A/B: {pend} samples queued for judging (/ck-verify)")
         else:
-            ok(f"A/B: coda vuota ({ab.get('ok', 0)} invarianti confermate)")
+            ok(f"A/B: queue empty ({ab.get('ok', 0)} invariances confirmed)")
 
     n_ko = sum(1 for lvl, _ in rows if lvl == "ko")
     n_warn = sum(1 for lvl, _ in rows if lvl == "warn")
@@ -165,13 +165,13 @@ def main():
         print(f"  {_GLYPH.get(lvl, '[--]  ')} {msg}")
     print("-" * 40)
     if n_ko:
-        print(f"  VERDETTO: {n_ko} problemi da risolvere"
-              + (f", {n_warn} avvisi" if n_warn else ""))
+        print(f"  VERDICT: {n_ko} issue(s) to fix"
+              + (f", {n_warn} warning(s)" if n_warn else ""))
         return 1
     if n_warn:
-        print(f"  VERDETTO: installazione ok, {n_warn} avvisi (nessun bloccante)")
+        print(f"  VERDICT: installation ok, {n_warn} warning(s) (none blocking)")
         return 0
-    print("  VERDETTO: tutto a posto ✓")
+    print("  VERDICT: all clear ✓")
     return 0
 
 

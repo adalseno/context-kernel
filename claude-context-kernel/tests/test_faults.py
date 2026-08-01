@@ -130,7 +130,7 @@ class TestRecallFault(unittest.TestCase):
         proc = _util.run_hook(_util.COMPRESS, payload, env=self.env)
         upd = _util.hook_json(proc)["hookSpecificOutput"]["updatedToolOutput"]
         blob = upd["stdout"]
-        m = re.search(r'parcheggiato: python3 "[^"]+" (\w+) ', blob)
+        m = re.search(r'parked: python3 "[^"]+" (\w+) ', blob)
         self.assertIsNotNone(m, blob)
         key = m.group(1)
 
@@ -154,7 +154,7 @@ class TestRecallFault(unittest.TestCase):
         payload["transcript_path"] = "/tmp/sess-recall.jsonl"
         proc = _util.run_hook(_util.COMPRESS, payload, env=self.env)
         blob = _util.hook_json(proc)["hookSpecificOutput"]["updatedToolOutput"]["stdout"]
-        key = re.search(r'parcheggiato: python3 "[^"]+" (\w+) ', blob).group(1)
+        key = re.search(r'parked: python3 "[^"]+" (\w+) ', blob).group(1)
         recall = os.path.join(_util.HOOKS, "recall.py")
         env = {**os.environ, "CK_PARK_STATE": self.park,
                "CK_FAULT_LOG": self.faults, "CK_LOG_OFF": "1"}
@@ -190,13 +190,13 @@ class TestFaultReport(unittest.TestCase):
                            capture_output=True, text=True, env=env)
         self.assertEqual(r.returncode, 0, r.stderr)
         out = r.stdout
-        self.assertIn("page fault (distorsione)", out)
-        self.assertIn("2 recuperi", out)
+        self.assertIn("page faults (distortion)", out)
+        self.assertIn("2 recoveries", out)
         self.assertIn("840", out)                # 800 + 40 rientrati
         # 840 rientrati su 1300 risparmiati = 64.6%
         self.assertIn("64.6%", out)
-        self.assertIn("riletture integrali", out)
-        self.assertIn("recall mirati", out)
+        self.assertIn("full re-reads", out)
+        self.assertIn("targeted recalls", out)
 
     def test_read_faults_helper(self):
         sys.path.insert(0, _util.HOOKS)

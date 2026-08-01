@@ -79,8 +79,8 @@ class TestSeedsAndSlice(RepoSliceCase):
         out = _run(self.root, "--symptom", PY_SYMPTOM).stdout
         self.assertIn("app/db.py — seed", out)         # dal frame
         self.assertIn("app/api.py — seed", out)        # anche lui nei frame
-        self.assertIn("app/util.py — dipendenza", out) # db importa util
-        self.assertIn("tests/test_db.py — test correlato", out)
+        self.assertIn("app/util.py — dependency", out) # db importa util
+        self.assertIn("tests/test_db.py — related test", out)
         self.assertNotIn("app/unrelated.py", out)
         self.assertNotIn("tests/test_unrelated.py", out)
         self.assertNotIn("web/", out)                  # altro linguaggio, non toccato
@@ -91,34 +91,34 @@ class TestSeedsAndSlice(RepoSliceCase):
         symptom = 'File "app/db.py", line 4, in connect'
         out = _run(self.root, "--symptom", symptom).stdout
         self.assertIn("app/db.py — seed", out)
-        self.assertIn("app/api.py — importatore", out)
+        self.assertIn("app/api.py — importer", out)
 
     def test_error_literal_greps_raise_site(self):
         """Niente path nel sintomo: il letterale quotato trova il raise site."""
         out = _run(self.root, "--symptom",
                    "il servizio muore con 'connection refused by upstream'").stdout
-        self.assertIn('app/db.py  <- contiene il letterale', out)
-        self.assertIn("app/util.py — dipendenza", out)
+        self.assertIn('app/db.py  <- contains the literal', out)
+        self.assertIn("app/util.py — dependency", out)
 
     def test_js_stack_frame_slice(self):
         out = _run(self.root, "--symptom",
                    "TypeError: fmt is not a function\n    at main (web/index.js:2:13)").stdout
         self.assertIn("web/index.js — seed", out)
-        self.assertIn("web/helper.js — dipendenza", out)
+        self.assertIn("web/helper.js — dependency", out)
         self.assertNotIn("web/orphan.js", out)
         self.assertNotIn("app/", out)
 
     def test_explicit_seed(self):
         out = _run(self.root, "--seed", "app/db.py").stdout
-        self.assertIn("app/db.py  <- seed esplicito", out)
+        self.assertIn("app/db.py  <- explicit seed", out)
 
     def test_dynamic_test_reference_found(self):
         """Test che caricano il sorgente SENZA import statico (importlib da
         path, subprocess): trovati per convenzione di nome o per citazione
         del basename tra virgolette."""
         out = _run(self.root, "--seed", "app/loader.py").stdout
-        self.assertIn("tests/test_loader.py — test correlato (usa app/loader.py)", out)
-        self.assertIn("tests/test_dyn.py — test correlato (usa app/loader.py)", out)
+        self.assertIn("tests/test_loader.py — related test (uses app/loader.py)", out)
+        self.assertIn("tests/test_dyn.py — related test (uses app/loader.py)", out)
 
     def test_ambiguous_ref_basename_not_guessed(self):
         """Basename citato ma ambiguo (piu' sorgenti omonimi): nessun arco."""
@@ -139,14 +139,14 @@ class TestSeedsAndSlice(RepoSliceCase):
         self.assertEqual(data["kept"], len(data["files"]))
         self.assertGreater(data["excluded"], 0)
         roles = {f["role"] for f in data["files"]}
-        self.assertLessEqual(roles, {"seed", "dipendenza", "importatore", "test"})
+        self.assertLessEqual(roles, {"seed", "dependency", "importer", "test"})
         seed_paths = {s["path"] for s in data["seeds"]}
         self.assertIn("app/db.py", seed_paths)
 
     def test_manifest_declares_page_fault(self):
         out = _run(self.root, "--symptom", PY_SYMPTOM).stdout
         self.assertIn("page-fault", out)
-        self.assertIn("prior, non un divieto", out)
+        self.assertIn("a prior, not a prohibition", out)
 
 
 class TestFailSafe(RepoSliceCase):
@@ -154,8 +154,8 @@ class TestFailSafe(RepoSliceCase):
     def test_no_seed_is_explicit_not_silent(self):
         proc = _run(self.root, "--symptom", "boh, qualcosa non va")
         self.assertEqual(proc.returncode, 0)
-        self.assertIn("nessun seed riconosciuto", proc.stderr)
-        self.assertIn("nessuna proiezione applicata", proc.stderr)
+        self.assertIn("no seed recognised", proc.stderr)
+        self.assertIn("no projection applied", proc.stderr)
 
     def test_missing_repo_exits_nonzero(self):
         proc = _run("/percorso/inesistente", "--symptom", "x")
@@ -180,10 +180,10 @@ class TestFailSafe(RepoSliceCase):
         """--deps-depth limita la chiusura delle dipendenze: con 1 hop
         util.py (2 hop da api.py) resta fuori; senza limite entra."""
         full = _run(self.root, "--seed", "app/api.py").stdout
-        self.assertIn("app/util.py — dipendenza", full)
+        self.assertIn("app/util.py — dependency", full)
         capped = _run(self.root, "--seed", "app/api.py", "--deps-depth", "1").stdout
-        self.assertIn("app/db.py — dipendenza", capped)
-        self.assertNotIn("app/util.py — dipendenza", capped)
+        self.assertIn("app/db.py — dependency", capped)
+        self.assertNotIn("app/util.py — dependency", capped)
 
     def test_package_root_prefixed_imports_resolved(self):
         """Root = directory del package stesso (root=pandas/): gli import col
@@ -203,7 +203,7 @@ class TestFailSafe(RepoSliceCase):
                 with open(p, "w", encoding="utf-8") as f:
                     f.write(content)
             out = _run(root, "--seed", "core/frame.py").stdout
-            self.assertIn("core/generic.py — dipendenza", out)
+            self.assertIn("core/generic.py — dependency", out)
         finally:
             shutil.rmtree(base)
 
@@ -227,17 +227,17 @@ class TestFailSafe(RepoSliceCase):
         rientra; sotto, scala; se nemmeno il minimo (seed+test) rientra,
         INSODDISFACIBILE — ma i seed non si tagliano mai."""
         out = _run(self.root, "--seed", "app/api.py", "--budget", "100000").stdout
-        self.assertIn("scelta config deps=full", out)
+        self.assertIn("chose config deps=full", out)
         self.assertIn("token", out)
         # slice piena ~49 token: budget 30 forza la discesa, util (2 hop) esce
         out = _run(self.root, "--seed", "app/api.py", "--budget", "30").stdout
         self.assertIn("app/api.py — seed", out)
         # util esce dalla SLICE, ma l'oracle di sufficienza lo dichiara page
         # fault atteso (non sparisce in silenzio: e' l'inverso, non l'oblio)
-        self.assertNotIn("app/util.py", out.split("## sufficienza")[0])
+        self.assertNotIn("app/util.py", out.split("## sufficiency")[0])
         self.assertIn("app/util.py", out)
         out = _run(self.root, "--symptom", PY_SYMPTOM, "--budget", "3").stdout
-        self.assertIn("INSODDISFACIBILE", out)
+        self.assertIn("UNSATISFIABLE", out)
         self.assertIn("app/db.py — seed", out)
 
     def test_budget_note_in_json(self):
@@ -264,15 +264,15 @@ class TestFailSafe(RepoSliceCase):
                 with open(os.path.join(base, rel), "w", encoding="utf-8") as f:
                     f.write(content)
             out = _run(base, "--seed", "core.py").stdout
-            self.assertIn("argmin sufficiente", out)
-            self.assertIn("0 fault attesi", out)
-            self.assertIn("mid.py — importatore", out)     # 1 hop: tenuto
-            self.assertNotIn("top.py — importatore", out)  # 2 hop: fuori
+            self.assertIn("sufficient argmin", out)
+            self.assertIn("0 expected faults", out)
+            self.assertIn("mid.py — importer", out)     # 1 hop: tenuto
+            self.assertNotIn("top.py — importer", out)  # 2 hop: fuori
             # kill switch: comportamento storico intatto
             out = _run(base, "--seed", "core.py",
                        env={"CK_ARGMIN": "0"}).stdout
-            self.assertNotIn("argmin sufficiente", out)
-            self.assertIn("top.py — importatore", out)
+            self.assertNotIn("sufficient argmin", out)
+            self.assertIn("top.py — importer", out)
         finally:
             shutil.rmtree(base)
 
@@ -283,8 +283,8 @@ class TestFailSafe(RepoSliceCase):
         out = _run(self.root, "--symptom", PY_SYMPTOM).stdout
         # util.py e' nella chiusura piena dei seed: qualunque scelta della
         # discesa deve tenerlo dentro la slice
-        self.assertIn("app/util.py — dipendenza", out)
-        self.assertIn("tests/test_db.py — test correlato", out)
+        self.assertIn("app/util.py — dependency", out)
+        self.assertIn("tests/test_db.py — related test", out)
 
     def test_t2b_symbol_slice_on_unsatisfiable_budget(self):
         """Budget insoddisfacibile a livello di file -> T2b: metodo di classe
@@ -313,14 +313,14 @@ class TestFailSafe(RepoSliceCase):
                        f"RuntimeError: motore ingolfato irreparabilmente")
             out = _run(base, "--symptom", symptom, "--budget", "60").stdout
             self.assertIn("## T2b", out)
-            self.assertIn("Motore.avvia (righe 202-203)", out)
+            self.assertIn("Motore.avvia (lines 202-203)", out)
             self.assertIn("sed -n '202,203p'", out)
-            self.assertIn("RIENTRA", out)
+            self.assertIn("FITS", out)
             # JSON: struttura t2b presente
             out = _run(base, "--symptom", symptom, "--budget", "60", "--json").stdout
             data = json.loads(out)
             self.assertTrue(data["t2b"]["fits"])
-            self.assertEqual(data["t2b"]["slices"][0]["esito"] in ("metodi", "slice",
+            self.assertEqual(data["t2b"]["slices"][0]["outcome"] in ("methods", "slice",
                              "file intero (nessun simbolo dal sintomo)"), True)
         finally:
             shutil.rmtree(base)
@@ -354,9 +354,9 @@ class TestFailSafe(RepoSliceCase):
                        "--json").stdout
             data = json.loads(out)
             sl = data["t2b"]["slices"][0]
-            self.assertEqual(sl["esito"], "slice")
+            self.assertEqual(sl["outcome"], "slice")
             self.assertIn("Handle", sl["symbols"])
-            self.assertIn("slice.py", sl["estrai"][0])
+            self.assertIn("slice.py", sl["extract"][0])
             # la slice a simbolo costa meno del file intero
             self.assertLess(sl["tokens"], len(big) // 4)
         finally:
@@ -380,7 +380,7 @@ class TestFailSafe(RepoSliceCase):
                 capture_output=True, text=True, timeout=60, env=env)
             out = proc.stdout
             # finestra stimata 200k, in uso 100k, headroom 100k -> 40%
-            self.assertIn("auto: sessione abc12345", out)
+            self.assertIn("auto: session abc12345", out)
             self.assertIn("headroom ~100k -> budget 40k", out)
         finally:
             os.unlink(state)
@@ -400,14 +400,14 @@ class TestFailSafe(RepoSliceCase):
         env = {"CK_SLICE_CACHE": "1", "CK_SLICE_CACHE_PATH": cpath}
         try:
             out1 = _run(self.root, "--symptom", PY_SYMPTOM, env=env).stdout
-            self.assertNotIn("manifest riusato", out1)
-            self.assertIn("operatore: T2@", out1)
+            self.assertNotIn("manifest reused", out1)
+            self.assertIn("operator: T2@", out1)
             out2 = _run(self.root, "--symptom", PY_SYMPTOM, env=env).stdout
-            self.assertIn("manifest riusato", out2)
+            self.assertIn("manifest reused", out2)
             self.assertIn(out1.strip().split("\n")[2], out2)  # stesso manifest
             os.utime(os.path.join(self.root, "app", "db.py"))  # tocca un file
             out3 = _run(self.root, "--symptom", PY_SYMPTOM, env=env).stdout
-            self.assertNotIn("manifest riusato", out3)
+            self.assertNotIn("manifest reused", out3)
         finally:
             if os.path.exists(cpath):
                 os.unlink(cpath)
@@ -433,7 +433,7 @@ class TestFailSafe(RepoSliceCase):
             f.write("pass\n")
         try:
             out = _run(self.root, "--symptom", 'File "db.py", line 1').stdout
-            self.assertIn("(nessuno)", out)
+            self.assertIn("(none)", out)
         finally:
             os.unlink(extra)
 
@@ -498,17 +498,17 @@ class TestPhpSlice(unittest.TestCase):
         out = _run(self.root, "--symptom", PHP_SYMPTOM).stdout
         self.assertIn("src/Service/Mailer.php — seed", out)
         self.assertIn("src/Controller/MailController.php — seed", out)
-        self.assertIn("src/Transport/Smtp.php — dipendenza", out)   # use singolo
-        self.assertIn("src/Util/Logger.php — dipendenza", out)      # use di gruppo
-        self.assertIn("src/Util/Clock.php — dipendenza", out)       # use di gruppo
-        self.assertIn("tests/MailerTest.php — test correlato", out)
+        self.assertIn("src/Transport/Smtp.php — dependency", out)   # use singolo
+        self.assertIn("src/Util/Logger.php — dependency", out)      # use di gruppo
+        self.assertIn("src/Util/Clock.php — dependency", out)       # use di gruppo
+        self.assertIn("tests/MailerTest.php — related test", out)
         self.assertNotIn("src/Orphan.php", out.split("## fuori slice")[0])
 
     def test_php_require_edge(self):
         """require_once __DIR__.'/...' -> arco verso il file incluso."""
         out = _run(self.root, "--seed", "src/legacy.php").stdout
-        self.assertIn("src/legacy.php  <- seed esplicito", out)
-        self.assertIn("src/Service/Mailer.php — dipendenza", out)
+        self.assertIn("src/legacy.php  <- explicit seed", out)
+        self.assertIn("src/Service/Mailer.php — dependency", out)
 
     def test_php_on_line_frame_seeds(self):
         """La sola forma 'in FILE.php on line N' basta come seed."""
@@ -584,17 +584,17 @@ class TestGoSlice(unittest.TestCase):
         out = _run(self.root, "--symptom", GO_SYMPTOM).stdout
         self.assertIn("db/db.go — seed", out)
         self.assertIn("main.go — seed", out)
-        self.assertIn("api/api.go — dipendenza", out)      # import a blocco
-        self.assertIn("db/util.go — dipendenza", out)      # package = dir
-        self.assertIn("db/db_test.go — test correlato", out)
+        self.assertIn("api/api.go — dependency", out)      # import a blocco
+        self.assertIn("db/util.go — dependency", out)      # package = dir
+        self.assertIn("db/db_test.go — related test", out)
         self.assertNotIn("extra/orphan.go", out.split("## fuori slice")[0])
 
     def test_go_aliased_single_import_edge(self):
         """`import alias "example.com/app/db"` (forma singola, con alias)
         -> arco verso il package db."""
         out = _run(self.root, "--seed", "api/api.go").stdout
-        self.assertIn("api/api.go  <- seed esplicito", out)
-        self.assertIn("db/db.go — dipendenza", out)
+        self.assertIn("api/api.go  <- explicit seed", out)
+        self.assertIn("db/db.go — dependency", out)
 
     def test_go_without_gomod_declares_no_edges(self):
         """Senza go.mod gli import interni non si risolvono senza indovinare:
@@ -608,8 +608,8 @@ class TestGoSlice(unittest.TestCase):
                 with open(path, "w", encoding="utf-8") as f:
                     f.write(GO_FIXTURE[rel])
             out = _run(bare, "--seed", "main.go").stdout
-            self.assertIn("main.go  <- seed esplicito", out)
-            self.assertNotIn("db/db.go — dipendenza", out)
+            self.assertIn("main.go  <- explicit seed", out)
+            self.assertNotIn("db/db.go — dependency", out)
         finally:
             _sh.rmtree(bare)
 
@@ -661,10 +661,10 @@ class TestGenericGraph(unittest.TestCase):
                    "store offline\n   at src/main.rs:5").stdout
         self.assertIn("src/store.rs — seed", out)
         self.assertIn("src/main.rs — seed", out)
-        self.assertIn("src/util.rs — dipendenza", out)     # stem univoco
-        self.assertIn("[grafo generico]", out)             # classe dichiarata
-        self.assertIn("grafo generico (riferimenti testuali", out)  # header
-        self.assertIn("tests/store_test.rs — test correlato", out)
+        self.assertIn("src/util.rs — dependency", out)     # stem univoco
+        self.assertIn("[generic graph]", out)             # classe dichiarata
+        self.assertIn("generic graph (textual references", out)  # header
+        self.assertIn("tests/store_test.rs — related test", out)
         head = out.split("## fuori slice")[0]
         self.assertNotIn("src/orphan.rs", head)
 
@@ -685,8 +685,8 @@ class TestGenericGraph(unittest.TestCase):
                 with open(os.path.join(base, rel), "w", encoding="utf-8") as f:
                     f.write(content)
             out = _run(base, "--seed", "app.c").stdout
-            self.assertIn("app.c  <- seed esplicito", out)
-            self.assertIn("render.h — dipendenza", out)
+            self.assertIn("app.c  <- explicit seed", out)
+            self.assertIn("render.h — dependency", out)
             head = out.split("## fuori slice")[0]
             self.assertNotIn("render.c —", head)
         finally:
@@ -730,11 +730,11 @@ class TestFromDiff(unittest.TestCase):
         proc = _run(self.root, "--from-diff", "HEAD")
         out = proc.stdout
         self.assertIn("app/db.py", out)
-        self.assertIn("file modificato nel diff (HEAD)", out)
-        self.assertIn("app/util.py — dipendenza", out)   # blast radius
-        self.assertIn("app/api.py — importatore", out)
-        self.assertIn("tests/test_db.py — test correlato", out)
-        self.assertIn("non-sorgente", proc.stderr)       # note.md scartato
+        self.assertIn("file changed in the diff (HEAD)", out)
+        self.assertIn("app/util.py — dependency", out)   # blast radius
+        self.assertIn("app/api.py — importer", out)
+        self.assertIn("tests/test_db.py — related test", out)
+        self.assertIn("non-source", proc.stderr)       # note.md scartato
 
     def test_diff_composes_with_symptom(self):
         out = _run(self.root, "--from-diff", "HEAD",
@@ -770,7 +770,7 @@ class TestLearnedPriors(RepoSliceCase):
              "cold": []})
         out = _run(self.root, "--symptom", PY_SYMPTOM, env=env).stdout
         self.assertIn("app/unrelated.py", out)
-        self.assertIn("prior appreso (T5: aperto fuori slice in 3 sessioni)",
+        self.assertIn("learned prior (T5: opened outside the slice in 3 sessions)",
                       out)
         self.assertIn("app/db.py — seed", out)         # i seed dal sintomo restano
 
@@ -779,7 +779,7 @@ class TestLearnedPriors(RepoSliceCase):
             {"seeds": [], "cold": [{"path": "app/util.py", "sessions": 2}]})
         out = _run(self.root, "--symptom", PY_SYMPTOM, env=env).stdout
         self.assertIn("app/util.py", out)              # resta in slice
-        self.assertIn("freddo T5: mai aperto in 2 sessioni", out)
+        self.assertIn("T5 cold: never opened in 2 sessions", out)
 
     def test_priors_alone_do_not_create_slice(self):
         """Senza seed dal sintomo il fail-safe resta: nessuna proiezione."""
@@ -788,7 +788,7 @@ class TestLearnedPriors(RepoSliceCase):
              "cold": []})
         proc = _run(self.root, "--symptom", "frase senza alcun sintomo",
                     env=env)
-        self.assertIn("nessun seed riconosciuto", proc.stderr)
+        self.assertIn("no seed recognised", proc.stderr)
 
     def test_missing_prior_file_ignored(self):
         env = self._priors_env(
@@ -808,7 +808,7 @@ class TestLearnedPriors(RepoSliceCase):
              "cold": []}), **base}
         second = _run(self.root, "--symptom", PY_SYMPTOM, env=env).stdout
         self.assertNotIn("[cache T2@", second)         # chiave diversa: no riuso
-        self.assertIn("prior appreso", second)
+        self.assertIn("learned prior", second)
         self.assertNotEqual(first, second)
 
 
@@ -858,7 +858,7 @@ class TestCoveragePrior(unittest.TestCase):
                              "SF:unrelated.py\nDA:1,0\nend_of_record\n")
         out = _run(self.root, "--seed", "app.py").stdout
         self.assertIn("plugin.py", out)
-        self.assertIn("eseguito a runtime (copertura)", out)
+        self.assertIn("executed at runtime (coverage)", out)
         self.assertNotIn("unrelated.py", out.split("## fuori slice")[0])
 
     def test_cobertura_adds_dynamic_seed(self):
@@ -869,7 +869,7 @@ class TestCoveragePrior(unittest.TestCase):
                 '</classes></package></packages></coverage>')
         out = _run(self.root, "--seed", "app.py").stdout
         self.assertIn("plugin.py", out)
-        self.assertIn("eseguito a runtime (copertura)", out)
+        self.assertIn("executed at runtime (coverage)", out)
 
     def test_sqlite_coverage_adds_dynamic_seed(self):
         import sqlite3
@@ -884,7 +884,7 @@ class TestCoveragePrior(unittest.TestCase):
         con.close()
         out = _run(self.root, "--seed", "app.py").stdout
         self.assertIn("plugin.py", out)
-        self.assertIn("eseguito a runtime (copertura)", out)
+        self.assertIn("executed at runtime (coverage)", out)
 
     def test_disabled_via_env(self):
         self._w("lcov.info", "SF:plugin.py\nDA:1,5\nend_of_record\n")
@@ -898,8 +898,8 @@ class TestCoveragePrior(unittest.TestCase):
             lines += [f"SF:mod{i}.py", "DA:1,1", "end_of_record"]
         self._w("lcov.info", "\n".join(lines) + "\n")
         out = _run(self.root, "--seed", "app.py").stdout
-        self.assertIn("## copertura", out)
-        self.assertIn("troppi per seminare", out)
+        self.assertIn("## coverage", out)
+        self.assertIn("too many to seed", out)
         self.assertNotIn("mod0.py — seed", out)    # non seminato alla cieca
 
     def test_no_slice_from_coverage_alone(self):
@@ -907,7 +907,7 @@ class TestCoveragePrior(unittest.TestCase):
         (charter #5): la copertura non semina da sola."""
         self._w("lcov.info", "SF:plugin.py\nDA:1,5\nend_of_record\n")
         proc = _run(self.root, "--symptom", "frase senza alcun sintomo")
-        self.assertIn("nessun seed riconosciuto", proc.stderr)
+        self.assertIn("no seed recognised", proc.stderr)
 
 
 class TestGitCochange(unittest.TestCase):
@@ -948,7 +948,7 @@ class TestGitCochange(unittest.TestCase):
 
     def test_cochange_added_as_prior(self):
         out = _run(self.root, "--seed", "app.py").stdout
-        self.assertIn("co-cambiato col seed", out)
+        self.assertIn("co-changed with the seed", out)
         self.assertIn("helper.py", out)
 
     def test_low_cochange_excluded(self):
@@ -963,7 +963,7 @@ class TestGitCochange(unittest.TestCase):
     def test_no_slice_from_cochange_alone(self):
         """Senza seed dal sintomo, nessuna proiezione (charter #5)."""
         proc = _run(self.root, "--symptom", "frase senza alcun sintomo")
-        self.assertIn("nessun seed riconosciuto", proc.stderr)
+        self.assertIn("no seed recognised", proc.stderr)
 
 
 class TestCtagsIndex(unittest.TestCase):
@@ -1002,7 +1002,7 @@ class TestCtagsIndex(unittest.TestCase):
         self._tags('compute_checksum\tsrc/core.rs\t/^pub fn/;"\tf\n')
         out = _run(self.root, "--seed", "src/handler.rs").stdout
         self.assertIn("src/core.rs", out)                  # recuperato via simbolo
-        self.assertIn("PROMOSSO da indice ctags", out)
+        self.assertIn("PROMOTED by a ctags index", out)
 
     def test_without_tags_symbol_edge_missing(self):
         # nessun file tags: l'euristica non collega core.rs (solo simbolo citato)
@@ -1047,8 +1047,8 @@ class TestSufficiency(RepoSliceCase):
 
     def test_sufficient_text_manifest(self):
         out = _run(self.root, "--symptom", PY_SYMPTOM).stdout
-        self.assertIn("## sufficienza", out)
-        self.assertIn("SUFFICIENTE", out)
+        self.assertIn("## sufficiency", out)
+        self.assertIn("SUFFICIENT", out)
 
     def test_insufficient_when_budget_drops_dependencies(self):
         """Budget minuscolo -> fallback che droppa le dipendenze -> la
@@ -1062,8 +1062,8 @@ class TestSufficiency(RepoSliceCase):
 
     def test_insufficient_text_lists_expected_faults(self):
         out = _run(self.root, "--symptom", PY_SYMPTOM, "--budget", "40").stdout
-        self.assertIn("INSUFFICIENTE", out)
-        self.assertIn("PAGE FAULT ATTESI", out)
+        self.assertIn("INSUFFICIENT", out)
+        self.assertIn("EXPECTED PAGE FAULTS", out)
         self.assertIn("app/util.py", out)
 
 
@@ -1075,7 +1075,7 @@ class TestAnchorEnds(RepoSliceCase):
 
     def _slice_paths(self, out: str) -> list[str]:
         """Path della sezione 'file della slice', nell'ordine di stampa."""
-        body = out.split("## file della slice", 1)[1]
+        body = out.split("## slice files", 1)[1]
         body = body.split("\n## ", 1)[0]
         return [ln[2:].split(" — ", 1)[0].strip()
                 for ln in body.splitlines() if ln.startswith("- ")]
@@ -1105,7 +1105,7 @@ class TestAnchorEnds(RepoSliceCase):
 
     def test_anchored_header_declares_the_reorder(self):
         out = _run(self.root, "--seed", "app/db.py", "--anchor-ends").stdout
-        self.assertIn("estremi ancorati", out)
+        self.assertIn("ends anchored", out)
         self.assertIn("lost-in-the-middle", out)
 
 
@@ -1131,7 +1131,7 @@ class TestDynamicReferences(unittest.TestCase):
         """import_module('pk.backend') letterale -> backend.py entra come seed
         col call site, benche' il grafo statico non lo raggiunga."""
         out = _run(self.root, "--seed", "pk/registry.py").stdout
-        self.assertIn('pk/backend.py  <- riferimento dinamico: '
+        self.assertIn('pk/backend.py  <- dynamic reference: '
                       'import "pk.backend"', out)
         self.assertIn("pk/registry.py:7", out)           # call site visibile
         self.assertIn("pk/backend.py — seed", out)
@@ -1143,14 +1143,14 @@ class TestDynamicReferences(unittest.TestCase):
                    env={"CK_DYNREF": "0"}).stdout
         self.assertNotIn("pk/backend.py — seed",
                          out.split("## fuori slice")[0])
-        self.assertNotIn("riferimento dinamico", out)
+        self.assertNotIn("dynamic reference", out)
 
     def test_non_literal_arg_is_declared_blind_never_guessed(self):
         """import_module(name): argomento non letterale -> punto cieco
         dichiarato, MAI indovinato (regola FQCN, charter #3)."""
         out = _run(self.root, "--seed", "pk/registry.py").stdout
-        self.assertIn("riferimenti dinamici non risolti", out)
-        self.assertIn("pk/registry.py:4 (argomento non letterale)", out)
+        self.assertIn("unresolved dynamic references", out)
+        self.assertIn("pk/registry.py:4 (non-literal argument)", out)
         # niente indovinelli: other.py non e' stato tirato dentro a caso
         self.assertNotIn("pk/other.py — seed", out)
 
@@ -1164,15 +1164,15 @@ class TestDynamicReferences(unittest.TestCase):
         """Come i prior (charter #5): senza seed dal sintomo, nessuna
         proiezione — i riferimenti dinamici non si autoseminano."""
         proc = _run(self.root, "--symptom", "frase senza sintomo alcuno")
-        self.assertIn("nessun seed riconosciuto", proc.stderr)
+        self.assertIn("no seed recognised", proc.stderr)
 
     def test_blind_spots_in_json(self):
         out = _run(self.root, "--seed", "pk/registry.py", "--json").stdout
         data = json.loads(out)
-        self.assertTrue(any("argomento non letterale" in b
+        self.assertTrue(any("non-literal argument" in b
                             for b in data.get("dynamic_blind", [])))
         self.assertTrue(any(s["path"] == "pk/backend.py"
-                            and "riferimento dinamico" in s["why"]
+                            and "dynamic reference" in s["why"]
                             for s in data["seeds"]))
 
     def test_dynref_flag_changes_cache_key(self):

@@ -79,7 +79,7 @@ def main() -> int:
             json.dump(st, f)
         os.replace(tmp, STATE)
         print("{}")
-        print(f"context-kernel[compact]: TS(Q) fotografato per {session}",
+        print(f"context-kernel[compact]: TS(Q) snapshotted for {session}",
               file=sys.stderr)
         return 0
     except Exception:                          # noqa: BLE001

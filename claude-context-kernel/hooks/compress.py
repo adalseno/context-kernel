@@ -479,9 +479,9 @@ def dedup(lines: list[str]) -> list[str]:
     return collapsed
 
 
-ELISION_MARK = "[context-kernel: elise"
+ELISION_MARK = "[context-kernel: elided"
 # marker delle elisioni STRUTTURALI (oggetti JSON, non righe)
-JSON_MARK = "[context-kernel: elisi"
+JSON_MARK = "[context-kernel: dropped"
 
 
 def has_elision(text: str) -> bool:
@@ -507,14 +507,14 @@ def _numeric_continuity(elided: list[str]) -> str | None:
     step = nums[1] - nums[0]
     if step == 0 or any(b - a != step for a, b in zip(nums, nums[1:])):
         return None
-    passo = f" a passo {step}" if step not in (1, -1) else ""
-    return f"numerazione continua {nums[0]}→{nums[-1]}{passo}"
+    passo = f" with step {step}" if step not in (1, -1) else ""
+    return f"unbroken numbering {nums[0]}→{nums[-1]}{passo}"
 
 
 def signal_preserving_truncate(
         lines: list[str],
         signal: "re.Pattern | Callable[[str], bool]" = SIGNAL,
-        kind: tuple[str, str] = ("rumore", "con segnale"),
+        kind: tuple[str, str] = ("noise", "carrying signal"),
         head_n: int | None = None,
         tail_n: int | None = None) -> list[str]:
     head_n = HEAD if head_n is None else head_n
@@ -535,10 +535,10 @@ def signal_preserving_truncate(
     start, end = head_n + 1, len(lines) - tail_n
     cont = _numeric_continuity(elided_lines)
     marker = (
-        f"{ELISION_MARK} righe {start}-{end}: {elided} righe di {kind[0]} "
-        f"(~{elided_tokens} token)"
+        f"{ELISION_MARK} lines {start}-{end}: {elided} lines of {kind[0]} "
+        f"(~{elided_tokens} tokens)"
         + (f"; {cont}" if cont else "")
-        + f"; mantenute {len(kept_signal)} righe {kind[1]}]"
+        + f"; kept {len(kept_signal)} lines {kind[1]}]"
     )
     out = head + [marker]
     if kept_signal:
@@ -555,12 +555,12 @@ def compress(text: str, fpath: str | None = None, scale: float = 1.0) -> str:
     if fpath and fpath.lower().endswith(CODE_EXTS):
         lines = signal_preserving_truncate(
             lines, signal=CODE_SIGNAL,
-            kind=("corpo", "di struttura (def/class/import)"),
+            kind=("body", "of structure (def/class/import)"),
             head_n=head_n, tail_n=tail_n)
     elif _diff_aware(lines):
         lines = signal_preserving_truncate(
             lines, signal=_diff_signal,
-            kind=("contesto diff", "cambiate (+/-) e struttura"),
+            kind=("diff context", "changed (+/-) and structural"),
             head_n=head_n, tail_n=tail_n)
     else:
         lines = signal_preserving_truncate(
@@ -675,11 +675,11 @@ def canary_check(payload: dict) -> str | None:
                         pr["ok"] = 0
                     continue
                 alert = (
-                    "context-kernel CANARY: la compressione precedente "
-                    f"(tool_use {p.get('id', '?')[:16]}) NON risulta applicata nel "
-                    "transcript: l'harness ha ignorato updatedToolOutput. I risparmi "
-                    "loggati sono solo teorici finche' non si ripristina il contratto "
-                    "(controlla la forma del campo, dict vs stringa). Avvisa l'utente."
+                    "context-kernel CANARY: the previous compression "
+                    f"(tool_use {p.get('id', '?')[:16]}) does not appear applied in "
+                    "the transcript: the harness ignored updatedToolOutput. The "
+                    "logged savings are only theoretical until the contract is "
+                    "restored (check the field shape, dict vs string). Tell the user."
                 )
                 # auto-degrade: N violazioni nella STESSA sessione -> smetti di
                 # comprimere per il resto della sessione (il messaggio di degrado
@@ -691,12 +691,12 @@ def canary_check(payload: dict) -> str | None:
                     st["degraded_sessions"] = (degraded + [sess])[-50:]
                     alert = (
                         "context-kernel AUTO-DEGRADE: "
-                        f"{_session_failures(st, sess)} compressioni non applicate "
-                        "in questa sessione (soglia "
-                        f"{CANARY_DEGRADE_N}). L'harness sta ignorando "
-                        "updatedToolOutput -> da ora gli output passano INTATTI "
-                        "(raw pass-through), niente piu' compressione ne' marker "
-                        "finche' la sessione non riparte. Avvisa l'utente."
+                        f"{_session_failures(st, sess)} compressions not applied "
+                        "in this session (threshold "
+                        f"{CANARY_DEGRADE_N}). The harness is ignoring "
+                        "updatedToolOutput -> from now on outputs pass through "
+                        "INTACT (raw pass-through), no more compression or markers "
+                        "until the session restarts. Tell the user."
                     )
         st["pending"] = still
         _autoheal_ack(st, iso)
@@ -722,11 +722,11 @@ def _probe_verified(st: dict, sess: str) -> str | None:
             s for s in st["degraded_sessions"] if s != sess]
         st["probe"].pop(sess, None)
         return (
-            "context-kernel RIPRISTINO: "
-            f"{CANARY_PROBE_M} sonde canary consecutive risultano applicate "
-            "nel transcript — l'harness onora di nuovo updatedToolOutput. "
-            "L'auto-degrade di questa sessione e' rimosso: la compressione "
-            "riparte."
+            "context-kernel RECOVERY: "
+            f"{CANARY_PROBE_M} consecutive canary probes appear applied in "
+            "the transcript — the harness honours updatedToolOutput again. "
+            "The auto-degrade for this session is lifted: compression "
+            "resumes."
         )
     return None
 
@@ -750,9 +750,9 @@ def _autoheal_ack(st: dict, iso: str) -> None:
     }])[-20:]
     st["failed"] = 0
     st["failures"] = []
-    print(f"context-kernel: canary auto-ack — {fl} failure transitori "
-          f"riconosciuti ({streak} compressioni verificate consecutive "
-          "dopo l'ultimo)", file=sys.stderr)
+    print(f"context-kernel: canary auto-ack — {fl} transient failures "
+          f"acknowledged ({streak} consecutive verified compressions "
+          "since the last one)", file=sys.stderr)
 
 
 def canary_probe_due(payload: dict) -> bool:
@@ -1117,11 +1117,11 @@ def delta_read(payload: dict, text: str) -> str | None:
                 remember(False)
                 return None
             remember(True)
-            return (f"[context-kernel: file INVARIATO dall'ultima lettura in "
-                    f"questa sessione (hash {h}) — la copia che hai gia' nel "
-                    f"contesto e' valida. Se ti serve comunque il contenuto, "
-                    f"rileggi di nuovo questo stesso file: la prossima Read "
-                    f"passa integrale]")
+            return (f"[context-kernel: file UNCHANGED since the last read in "
+                    f"this session (hash {h}) — the copy you already have in "
+                    f"context is valid. If you need the content anyway, read "
+                    f"this same file again: the next Read passes through in "
+                    f"full]")
         old = _unpack_content(rec)
         if not old:                            # file grande: niente diff
             remember(False)
@@ -1129,12 +1129,12 @@ def delta_read(payload: dict, text: str) -> str | None:
         import difflib
         diff = "\n".join(difflib.unified_diff(
             old.split("\n"), text.split("\n"),
-            fromfile="lettura precedente", tofile="ora", lineterm="", n=2))
+            fromfile="previous read", tofile="now", lineterm="", n=2))
         remember(False)
         if not diff or est_tokens(diff) >= est_tokens(text) * 0.6:
             return None                        # diff non conviene: integrale
-        return (f"[context-kernel: file CAMBIATO dall'ultima lettura (questa "
-                f"sessione). Diff contro la copia che hai gia' nel contesto:]\n"
+        return (f"[context-kernel: file CHANGED since the last read (this "
+                f"session). Diff against the copy you already have in context:]\n"
                 f"{diff}")
 
 
@@ -1245,14 +1245,14 @@ def cmd_delta(payload: dict, text: str) -> str | None:
                 remember(False)
                 return None
             remember(True)
-            what = ("di questo stesso comando"
+            what = ("of this same command"
                     if payload.get("tool_name") == "Bash"
-                    else "di questa stessa chiamata MCP")
-            return (f"[context-kernel: output IDENTICO all'ultima esecuzione "
-                    f"{what} in questa sessione (hash {h}, "
-                    f"~{est_tokens(text)} token) — la copia che hai gia' nel "
-                    f"contesto e' valida. Se ti serve comunque, riesegui: la "
-                    f"prossima passa integrale]")
+                    else "of this same MCP call")
+            return (f"[context-kernel: output IDENTICAL to the last run "
+                    f"{what} in this session (hash {h}, "
+                    f"~{est_tokens(text)} tokens) — the copy you already have "
+                    f"in context is valid. If you need it anyway, re-run it: "
+                    f"the next one passes through in full]")
         remember(False)                        # output cambiato: registra
         return None
 
@@ -1316,14 +1316,15 @@ def grep_project(text: str) -> str | None:
         if extra > 0:
             hidden += extra
             hidden_tok += est_tokens("\n".join(ls[GREP_PER_FILE:]))
-            out.append(f"  [+{extra} altri match in {f}]")
+            out.append(f"  [+{extra} more matches in {f}]")
     if hidden == 0:
         return None
     total = sum(len(v) for v in per.values())
-    marker = (f"{ELISION_MARK} {hidden} match oltre il {GREP_PER_FILE}o per "
-              f"file (~{hidden_tok} token): {total} match in {len(order)} "
-              f"file, tenuti i primi {GREP_PER_FILE} per file — nessun file "
-              f"e' stato tolto; per il resto ripeti il grep sul singolo file]")
+    marker = (f"{ELISION_MARK} {hidden} matches beyond the {GREP_PER_FILE}th "
+              f"per file (~{hidden_tok} tokens): {total} matches in "
+              f"{len(order)} files, kept the first {GREP_PER_FILE} per file — "
+              f"no file was dropped; for the rest, repeat the grep on the "
+              f"single file]")
     return "\n".join([marker] + out)
 
 
@@ -1358,10 +1359,10 @@ def json_project(text: str) -> str | None:
                     hidden["n"] += len(dropped)
                     shown = ", ".join(keys[:12]) + (", …" if len(keys) > 12 else "")
                     return items[:JSON_SAMPLE] + [
-                        f"{JSON_MARK} {len(dropped)} di {len(items)} oggetti "
-                        f"(~{tok} token) con chiavi {{{shown}}}; per "
-                        f"l'integrale ripeti la stessa chiamata: la prossima "
-                        f"passa integrale]"
+                        f"{JSON_MARK} {len(dropped)} of {len(items)} objects "
+                        f"(~{tok} tokens) with keys {{{shown}}}; for the full "
+                        f"payload repeat the same call: the next one passes "
+                        f"through in full]"
                     ]
             return items
         if isinstance(node, dict):
@@ -1387,7 +1388,7 @@ def py_outline(text: str) -> str | None:
 
     def sig(node, indent: str = "") -> str:
         line = src[node.lineno - 1].strip() if node.lineno - 1 < len(src) else "?"
-        return f"{indent}{line}  # righe {node.lineno}-{node.end_lineno}"
+        return f"{indent}{line}  # lines {node.lineno}-{node.end_lineno}"
 
     imports = [src[n.lineno - 1] for n in tree.body
                if isinstance(n, (ast.Import, ast.ImportFrom))
@@ -1403,10 +1404,10 @@ def py_outline(text: str) -> str | None:
                     symbols.append(sig(sub, "    "))
     if not symbols:
         return None
-    header = (f"{ELISION_MARK} corpo del file (~{est_tokens(text)} token, "
-              f"{len(src)} righe): file GRANDE proiettato a OUTLINE — "
-              f"{len(symbols)} simboli con line-range; leggi il simbolo che "
-              f"ti serve con Read offset/limit]")
+    header = (f"{ELISION_MARK} file body (~{est_tokens(text)} tokens, "
+              f"{len(src)} lines): LARGE file projected to an OUTLINE — "
+              f"{len(symbols)} symbols with line ranges; read the symbol you "
+              f"need with Read offset/limit]")
     return "\n".join([header] + imports[:40] + [""] + symbols)
 
 
@@ -1433,8 +1434,8 @@ def prose_project(text: str) -> str | None:
             if len(run) >= 6:
                 tok = est_tokens("\n".join(run[2:]))
                 out.extend(run[:2])
-                out.append(f"{ELISION_MARK} {len(run) - 2} righe di "
-                           f"link/navigazione (~{tok} token)]")
+                out.append(f"{ELISION_MARK} {len(run) - 2} lines of "
+                           f"links/navigation (~{tok} tokens)]")
                 hidden += len(run) - 2
                 i = j
                 continue
@@ -1622,13 +1623,13 @@ def main() -> int:
             # se comprime, il pending marcato probe portera' l'evidenza che
             # decide il ripristino (canary_check al giro dopo)
             payload["_ck_probe"] = True
-            print("context-kernel: sonda canary in sessione degradata "
-                  f"(1 ogni {CANARY_PROBE_K} output comprimibili)",
+            print("context-kernel: canary probe in a degraded session "
+                  f"(1 every {CANARY_PROBE_K} compressible outputs)",
                   file=sys.stderr)
         else:
             if not alert:
-                print("context-kernel: auto-degrade attivo (canary) -> raw "
-                      "pass-through per questa sessione", file=sys.stderr)
+                print("context-kernel: auto-degrade active (canary) -> raw "
+                      "pass-through for this session", file=sys.stderr)
             return noop()
 
     tool_name = payload.get("tool_name")
@@ -1707,7 +1708,7 @@ def main() -> int:
         mode, lscale = learned_rate(
             fpath if payload.get("tool_name") == "Read" else None)
         if mode == "raw":                      # fault ricorrenti misurati:
-            print("context-kernel: tasso appreso (T5) -> raw per "
+            print("context-kernel: learned rate (T5) -> raw for "
                   f"{os.path.splitext(fpath or '')[1]}", file=sys.stderr)
             return noop()                      # l'elisione qui costava piu'
         scale *= lscale                        # di quanto risparmiava
@@ -1744,8 +1745,8 @@ def main() -> int:
             and payload.get("tool_name") == "Read"
             and ELISION_MARK in compressed
             and mark_read_elided(payload, text, before - after)):
-        hint = (" [copia ELISA: per l'integrale rileggi questo stesso file — "
-                "o solo l'intervallo eliso, con offset/limit dal marker]")
+        hint = (" [ELIDED copy: for the full text read this same file again — "
+                "or just the elided range, with offset/limit from the marker]")
     if (CMD_DELTA_ENABLED and replacement is None
             and (payload.get("tool_name") == "Bash" or is_mcp)
             and has_elision(compressed)):
@@ -1759,13 +1760,13 @@ def main() -> int:
         if pkey:
             rp = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               "recall.py")
-            hint += (f' [parcheggiato: python3 "{rp}" {pkey} '
+            hint += (f' [parked: python3 "{rp}" {pkey} '
                      f"--grep PATTERN | --lines A-B]")
     # Il marcatore del canary e' il footer NUDO (solo i numeri): l'hint puo'
     # contenere path tra virgolette (parcheggio) che nel JSONL del transcript
     # diventano \" — il match esatto sulla riga grezza fallirebbe: falso
     # allarme "harness ha ignorato updatedToolOutput" su compressioni sane.
-    footer_core = f"[context-kernel: {before} -> {after} token, -{saved:.0%}]"
+    footer_core = f"[context-kernel: {before} -> {after} tokens, -{saved:.0%}]"
     footer = f"{footer_core}{hint}"
     compressed += f"\n\n{footer}"
     if replacement is None and has_elision(compressed):

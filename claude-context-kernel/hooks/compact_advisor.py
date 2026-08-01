@@ -105,10 +105,11 @@ def main() -> int:
         print(json.dumps({"hookSpecificOutput": {
             "hookEventName": "PostToolUse",
             "additionalContext": (
-                f"[context-kernel] finestra al {pct}% (~{used // 1000}k su "
-                f"~{win // 1000}k). Un /compact MANUALE adesso costa meno "
-                "dell'auto-compact vicino al pieno — e lo snapshot TS(Q) e' "
-                "gia' difeso dal PreCompact. Avviso una-tantum per sessione."),
+                f"[context-kernel] window at {pct}% (~{used // 1000}k of "
+                f"~{win // 1000}k). A MANUAL /compact now costs less than an "
+                "auto-compact near the limit — and the TS(Q) snapshot is "
+                "already protected by PreCompact. One-off warning per "
+                "session."),
         }}))
         return 0
     except Exception:                          # noqa: BLE001

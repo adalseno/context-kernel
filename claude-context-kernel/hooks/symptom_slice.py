@@ -170,15 +170,15 @@ def task_switch_note(session: str, repo: str, out: str) -> str | None:
         if fresh:
             shown = ", ".join(fresh[:8])
             more = f" (+{len(fresh) - 8})" if len(fresh) > 8 else ""
-            detail = (f" File richiesti da Q2 assenti dal working set "
-                      f"precedente: {shown}{more}.")
+            detail = (f" Files required by Q2 that are absent from the "
+                      f"previous working set: {shown}{more}.")
         if dropped:
-            detail += (f" {dropped} file del working set precedente non "
-                       f"servono piu' a Q2.")
-        return ("[context-kernel] CAMBIO TASK rilevato (Q1 -> Q2): il sintomo "
-                "differisce da quello per cui era stato calcolato il working "
-                "set precedente. La proiezione era indicizzata su Q1 e non ha "
-                "garanzie su Q2 — il manifest qui sopra la SOSTITUISCE come "
+            detail += (f" {dropped} files from the previous working set are "
+                       f"no longer needed for Q2.")
+        return ("[context-kernel] TASK SWITCH detected (Q1 -> Q2): the symptom "
+                "differs from the one the previous working set was computed "
+                "for. That projection was indexed on Q1 and carries no "
+                "guarantee for Q2 — the manifest above REPLACES it as the "
                 "prior." + detail)
     except Exception:                          # noqa: BLE001
         return None
@@ -218,10 +218,11 @@ def main() -> int:
             print("{}")                        # niente seed: meglio tacere
             return 0
         head = "\n".join(out.split("\n")[:MAX_LINES])
-        ctx = ("[context-kernel] Sintomo rilevato nel prompt: working set "
-               "calcolato dallo slicer deterministico (T2). Usalo come prior "
-               "per l'esplorazione, non come divieto; per rifarlo con altri "
-               "parametri c'e' la skill kernel-repo-slice.\n" + head)
+        ctx = ("[context-kernel] Symptom detected in the prompt: working set "
+               "computed by the deterministic slicer (T2). Use it as a prior "
+               "for exploration, not as a prohibition; to recompute it with "
+               "different parameters there is the kernel-repo-slice skill.\n"
+               + head)
         session = hook_session(payload)
         note = task_switch_note(session, cwd, out)
         if note:
@@ -231,7 +232,7 @@ def main() -> int:
             "additionalContext": ctx,
         }}))
         task_remember(session, cwd, out)
-        print(f"context-kernel[symptom]: slice iniettata da {cwd}",
+        print(f"context-kernel[symptom]: slice injected from {cwd}",
               file=sys.stderr)
         return 0
     except Exception:                          # noqa: BLE001

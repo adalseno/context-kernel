@@ -88,7 +88,7 @@ class TestCanaryRecord(CanaryCase):
         upd = _util.hook_json(proc)["hookSpecificOutput"]["updatedToolOutput"]
         st = self.state_dict()
         footer = st["pending"][0]["footer"]
-        self.assertRegex(footer, r"^\[context-kernel: \d+ -> \d+ token, -\d+%\]$")
+        self.assertRegex(footer, r"^\[context-kernel: \d+ -> \d+ tokens, -\d+%\]$")
         self.assertIn(footer, upd["stdout"])              # coerente con l'emesso
 
     def test_subagent_compression_not_recorded(self):
@@ -116,7 +116,7 @@ class TestCanaryVerify(CanaryCase):
     def test_footer_in_transcript_means_verified(self):
         self.seed_pending()
         with open(self.transcript, "w", encoding="utf-8") as f:
-            f.write(_transcript_line(TID, "output compresso\n\n[context-kernel: 100 -> 10 token, -90%]"))
+            f.write(_transcript_line(TID, "output compresso\n\n[context-kernel: 100 -> 10 tokens, -90%]"))
         proc = _util.run_hook(_util.COMPRESS, self.payload(stdout_text="piccolo"), env=self.env)
         self.assertEqual(_util.hook_json(proc), {})       # nessun allarme
         st = self.state_dict()
@@ -135,7 +135,7 @@ class TestCanaryVerify(CanaryCase):
         out = _util.hook_json(proc)
         ctx = out["hookSpecificOutput"]["additionalContext"]
         self.assertIn("CANARY", ctx)
-        self.assertIn("NON risulta applicata", ctx)
+        self.assertIn("does not appear applied", ctx)
         st = self.state_dict()
         self.assertEqual(st["failed"], 1)
         self.assertEqual(st["pending"], [])
@@ -156,9 +156,9 @@ class TestCanaryVerify(CanaryCase):
         """Un tool_result INTEGRALE il cui contenuto CITA un footer (doc del
         progetto, log, transcript riletti) NON deve risultare verificato:
         il match va fatto sul footer esatto della compressione pending."""
-        self.seed_pending(footer="[context-kernel: 1384 -> 855 token, -38%]")
+        self.seed_pending(footer="[context-kernel: 1384 -> 855 tokens, -38%]")
         citazione = ("il file spiega il formato del footer, es. "
-                     "[context-kernel: 1847 -> 1014 token, -45%] a fine output")
+                     "[context-kernel: 1847 -> 1014 tokens, -45%] a fine output")
         with open(self.transcript, "w", encoding="utf-8") as f:
             f.write(_transcript_line(TID, citazione))
         proc = _util.run_hook(_util.COMPRESS, self.payload(stdout_text="piccolo"), env=self.env)
@@ -169,7 +169,7 @@ class TestCanaryVerify(CanaryCase):
         self.assertEqual(st["failed"], 1)
 
     def test_exact_footer_in_transcript_means_verified(self):
-        footer = "[context-kernel: 1384 -> 855 token, -38%]"
+        footer = "[context-kernel: 1384 -> 855 tokens, -38%]"
         self.seed_pending(footer=footer)
         with open(self.transcript, "w", encoding="utf-8") as f:
             f.write(_transcript_line(TID, f"output compresso\n\n{footer}"))
@@ -192,12 +192,12 @@ class TestCanaryVerify(CanaryCase):
         proc = _util.run_hook(_util.COMPRESS, self.payload(stdout_text=varied),
                               env=self.env)
         upd = _util.hook_json(proc)["hookSpecificOutput"]["updatedToolOutput"]
-        self.assertIn("parcheggiato", upd["stdout"])      # hint presente
-        self.assertIn('"', upd["stdout"].split("parcheggiato")[1].split("]")[0])
+        self.assertIn("parked", upd["stdout"])      # hint presente
+        self.assertIn('"', upd["stdout"].split("parked")[1].split("]")[0])
         st = self.state_dict()
         footer = st["pending"][0]["footer"]
-        self.assertRegex(footer, r"^\[context-kernel: \d+ -> \d+ token, -\d+%\]$")
-        self.assertNotIn("parcheggiato", footer)          # footer NUDO
+        self.assertRegex(footer, r"^\[context-kernel: \d+ -> \d+ tokens, -\d+%\]$")
+        self.assertNotIn("parked", footer)          # footer NUDO
         # il transcript registra l'output compresso INTEGRALE, JSON-escapato
         with open(self.transcript, "w", encoding="utf-8") as f:
             f.write(_transcript_line(TID, upd["stdout"]))
@@ -211,10 +211,10 @@ class TestCanaryVerify(CanaryCase):
     def test_elision_marker_alone_is_not_verified(self):
         """Il marcatore interno di elisione '[context-kernel: elise ...]' non
         e' il footer: senza footer esatto la compressione non risulta applicata."""
-        self.seed_pending(footer="[context-kernel: 1384 -> 855 token, -38%]")
+        self.seed_pending(footer="[context-kernel: 1384 -> 855 tokens, -38%]")
         with open(self.transcript, "w", encoding="utf-8") as f:
             f.write(_transcript_line(
-                TID, "testa\n[context-kernel: elise 100 righe di rumore "
+                TID, "testa\n[context-kernel: elided 100 righe di rumore "
                      "(~900 token); mantenute 2 righe con segnale]\ncoda"))
         _util.run_hook(_util.COMPRESS, self.payload(stdout_text="piccolo"), env=self.env)
         st = self.state_dict()
@@ -226,7 +226,7 @@ class TestCanaryVerify(CanaryCase):
         prefisso generico, per non condannarli tutti a failed."""
         self.seed_pending()                                # nessun footer
         with open(self.transcript, "w", encoding="utf-8") as f:
-            f.write(_transcript_line(TID, "x\n\n[context-kernel: 100 -> 10 token, -90%]"))
+            f.write(_transcript_line(TID, "x\n\n[context-kernel: 100 -> 10 tokens, -90%]"))
         _util.run_hook(_util.COMPRESS, self.payload(stdout_text="piccolo"), env=self.env)
         st = self.state_dict()
         self.assertEqual(st["verified"], 1)
@@ -255,7 +255,7 @@ class TestCanaryVerify(CanaryCase):
     def test_failure_records_session(self):
         """Ogni fallimento annota la sessione: distingue questa sessione
         dalle headless concorrenti (distiller)."""
-        self.seed_pending(footer="[context-kernel: 999 -> 111 token, -89%]")
+        self.seed_pending(footer="[context-kernel: 999 -> 111 tokens, -89%]")
         with open(self.transcript, "w", encoding="utf-8") as f:
             f.write(_transcript_line(TID, NOISY))
         _util.run_hook(_util.COMPRESS, self.payload(stdout_text="piccolo"), env=self.env)
@@ -316,7 +316,7 @@ class TestCanaryInSavingsReport(CanaryCase):
             json.dump({"pending": [], "verified": 3, "failed": 0,
                        "last_ok": "2026-01-01T00:00:00", "last_failure": None}, f)
         out = _util.run_script(_util.SAVINGS, "", env=self.env).stdout
-        self.assertIn("canary: ✓ 3 compressioni verificate", out)
+        self.assertIn("canary: ✓ 3 compressions verified", out)
 
     def test_report_warns_on_failures(self):
         self._seed_log()
@@ -324,8 +324,8 @@ class TestCanaryInSavingsReport(CanaryCase):
             json.dump({"pending": [], "verified": 1, "failed": 2,
                        "last_ok": None, "last_failure": "2026-01-01T00:00:00"}, f)
         out = _util.run_script(_util.SAVINGS, "", env=self.env).stdout
-        self.assertIn("CANARY: ⚠ 2 compressioni NON applicate", out)
-        self.assertIn("sovrastimati", out)
+        self.assertIn("CANARY: ⚠ 2 compressions NOT applied", out)
+        self.assertIn("overstated", out)
 
     def test_report_silent_without_state(self):
         self._seed_log()
@@ -341,7 +341,7 @@ class TestCanaryInSavingsReport(CanaryCase):
                        "failed_auto_acked": 2, "heal_streak": 6,
                        "last_ok": "2026-01-01T00:00:00", "last_failure": None}, f)
         out = _util.run_script(_util.SAVINGS, "", env=self.env).stdout
-        self.assertIn("2 auto-riconosciuti", out)
+        self.assertIn("2 auto-acknowledged", out)
         self.assertNotIn("⚠", out)
 
     def test_report_shows_heal_streak_on_open_failures(self):
@@ -353,7 +353,7 @@ class TestCanaryInSavingsReport(CanaryCase):
                        "heal_streak": 2, "failures": [{"ts": "x", "session": "s1"}],
                        "last_ok": None, "last_failure": "2026-01-01T00:00:00"}, f)
         out = _util.run_script(_util.SAVINGS, "", env=self.env).stdout
-        self.assertIn("auto-heal: 2 verificate consecutive", out)
+        self.assertIn("auto-heal: 2 consecutive verified", out)
 
     def test_reset_canary_acks_failures(self):
         """--reset-canary sposta i fallimenti nello storico riconosciuto:
@@ -365,10 +365,10 @@ class TestCanaryInSavingsReport(CanaryCase):
                        "last_ok": None, "last_failure": "2026-01-01T00:00:00"}, f)
         out = _util.run_script(_util.SAVINGS, "", env=self.env,
                                args=["--reset-canary"]).stdout
-        self.assertIn("Riconosciuti 2 fallimenti", out)
+        self.assertIn("Acknowledged 2 canary failures", out)
         report = _util.run_script(_util.SAVINGS, "", env=self.env).stdout
         self.assertNotIn("⚠", report)
-        self.assertIn("2 storici riconosciuti", report)
+        self.assertIn("2 historical, acknowledged", report)
 
 
 class TestCanaryAutoDegrade(CanaryCase):
@@ -444,7 +444,7 @@ class TestCanaryAutoDegrade(CanaryCase):
         self.assertEqual(self.state_dict().get("degraded_sessions", []), [])
 
 
-FOOTER_OK = "[context-kernel: 100 -> 10 token, -90%]"
+FOOTER_OK = "[context-kernel: 100 -> 10 tokens, -90%]"
 
 
 class TestCanaryAutoheal(CanaryCase):
@@ -581,7 +581,7 @@ class TestCanaryProbe(CanaryCase):
         proc = _util.run_hook(_util.COMPRESS, self.payload(stdout_text="piccolo"),
                               env={**self.env, **self.PROBE_ENV})
         ctx = _util.hook_json(proc)["hookSpecificOutput"]["additionalContext"]
-        self.assertIn("RIPRISTINO", ctx)
+        self.assertIn("RECOVERY", ctx)
         st = self.state_dict()
         self.assertEqual(st["degraded_sessions"], [])      # degrado rimosso
         self.assertNotIn(self._sess(), st.get("probe", {}))

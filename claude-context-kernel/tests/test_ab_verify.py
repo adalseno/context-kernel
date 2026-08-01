@@ -19,7 +19,7 @@ def _pack(text: str) -> str:
 
 
 def _sample(orig: str = "riga a\nERRORE: rotto\nriga b",
-            comp: str = "riga a\n[context-kernel: elise 1 righe]\nERRORE: rotto",
+            comp: str = "riga a\n[context-kernel: elided 1 righe]\nERRORE: rotto",
             attempts: int = 0) -> dict:
     return {"ts": 1752700000.0, "tool": "Bash", "file": None,
             "session": "abcd1234", "attempts": attempts,
@@ -58,20 +58,20 @@ class TestABVerify(unittest.TestCase):
 
     def test_invariant_verdict_updates_ledger(self):
         self._write_state([_sample()])
-        judge = self._fake_judge("analisi breve\nVERDETTO: INVARIANTE")
+        judge = self._fake_judge("analisi breve\nVERDICT: INVARIANT")
         proc = self._run(judge)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         st = self._state()
         self.assertEqual(st["ok"], 1)
         self.assertEqual(st["degraded"], 0)
         self.assertEqual(st["pending"], [])
-        self.assertIn("INVARIANTE", proc.stdout)
+        self.assertIn("INVARIANT", proc.stdout)
 
     def test_degraded_verdict_records_what_was_lost(self):
         self._write_state([_sample()])
         judge = self._fake_judge(
             "manca l'esito dei test\n"
-            "VERDETTO: DEGRADATO — conteggio dei test falliti perso")
+            "VERDICT: DEGRADED — conteggio dei test falliti perso")
         proc = self._run(judge)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         st = self._state()
@@ -79,7 +79,7 @@ class TestABVerify(unittest.TestCase):
         self.assertEqual(st["pending"], [])
         self.assertIn("conteggio dei test falliti perso",
                       st["degradations"][0]["missing"])
-        self.assertIn("DEGRADATO", proc.stdout)
+        self.assertIn("DEGRADED", proc.stdout)
 
     def test_unparsable_answer_retries_then_drops(self):
         self._write_state([_sample()])
@@ -101,7 +101,7 @@ class TestABVerify(unittest.TestCase):
         self.assertEqual(proc.returncode, 0)   # mai fatale
         st = self._state()
         self.assertEqual(len(st["pending"]), 1)
-        self.assertIn("non trovato", proc.stderr)
+        self.assertIn("not found", proc.stderr)
 
     def test_judge_prompt_contains_both_versions(self):
         self._write_state([_sample(orig="ORIGINALE-UNICO-XYZ",
@@ -116,13 +116,13 @@ class TestABVerify(unittest.TestCase):
         self._write_state([_sample()], ok=4, degraded=1)
         proc = self._run("irrilevante", args=["--status"])
         self.assertEqual(proc.returncode, 0)
-        self.assertIn("4 invarianti", proc.stdout)
-        self.assertIn("1 degradate", proc.stdout)
-        self.assertIn("1 campioni in attesa", proc.stdout)
+        self.assertIn("4 invariant", proc.stdout)
+        self.assertIn("1 degraded", proc.stdout)
+        self.assertIn("1 samples pending", proc.stdout)
 
     def test_limit_judges_only_first_n(self):
         self._write_state([_sample(), _sample(orig="secondo campione qui")])
-        judge = self._fake_judge("VERDETTO: INVARIANTE")
+        judge = self._fake_judge("VERDICT: INVARIANT")
         self._run(judge, args=["--limit", "1"])
         st = self._state()
         self.assertEqual(st["ok"], 1)
@@ -151,7 +151,7 @@ class TestABVerify(unittest.TestCase):
                  "CK_CANARY_STATE": os.path.join(self.dir, "no-canary.json")})
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("A/B invariance", proc.stdout)
-        self.assertIn("2 degradate", proc.stdout)
+        self.assertIn("2 degraded", proc.stdout)
         self.assertIn("ab_verify.py", proc.stdout)
 
 

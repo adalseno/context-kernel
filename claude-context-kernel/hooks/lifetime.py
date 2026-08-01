@@ -155,21 +155,21 @@ def main() -> int:
     live = liveness_by_bucket(evs)
 
     if not evs:
-        print("lifetime: nessun page fault registrato — nessun segnale, "
-              f"soglia al valore base {_fmt_pct(base if base > 0 else 0.70)} "
-              "(niente adattamento).")
+        print("lifetime: no page fault recorded — no signal, "
+              f"threshold at its base value {_fmt_pct(base if base > 0 else 0.70)} "
+              "(no adaptation).")
         return 0
 
-    verdict = ("TIENI (contesto vivo, i drop rientrano)" if p > 0.58
-               else "COMPATTA PRIMA (contesto morto, i drop non tornano)"
-               if p < 0.42 else "neutro (nessuna spinta)")
-    print(f"lifetime: {len(evs)} page fault, pressione {p:.2f} -> {verdict}")
-    print(f"  soglia avviso: {_fmt_pct(base if base > 0 else 0.70)} base "
-          f"-> {_fmt_pct(thr)} adattiva")
+    verdict = ("KEEP (live context, drops come back)" if p > 0.58
+               else "COMPACT EARLIER (dead context, drops do not come back)"
+               if p < 0.42 else "neutral (no push either way)")
+    print(f"lifetime: {len(evs)} page faults, pressure {p:.2f} -> {verdict}")
+    print(f"  warning threshold: {_fmt_pct(base if base > 0 else 0.70)} base "
+          f"-> {_fmt_pct(thr)} adaptive")
     if live:
-        print("  sopravvivenza per classe (n rientri, token rientrati):")
+        print("  survival by class (n recoveries, tokens clawed back):")
         for bucket, (n, t) in sorted(live.items(), key=lambda x: -x[1][1])[:10]:
-            print(f"    {bucket:16s} {n:4d}x   ~{t:,} token")
+            print(f"    {bucket:16s} {n:4d}x   ~{t:,} tokens")
     return 0
 
 

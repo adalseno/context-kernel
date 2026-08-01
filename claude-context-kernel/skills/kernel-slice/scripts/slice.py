@@ -228,7 +228,7 @@ def slice_go(src: str, targets: set[str]) -> str | None:
 
 def main(argv: list[str]) -> int:
     if len(argv) < 3:
-        print("uso: slice.py <file.(py|go)> <simbolo> [...]", file=sys.stderr)
+        print("usage: slice.py <file.(py|go)> <symbol> [...]", file=sys.stderr)
         return 2
     path, targets = argv[1], set(argv[2:])
     src = open(path, encoding="utf-8").read()

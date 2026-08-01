@@ -74,7 +74,7 @@ def run(root: str, n_cases: int, as_json: bool) -> int:
     root = os.path.abspath(root)
     files = [f.replace(os.sep, "/") for f in rs.collect_files(root)]
     if not files:
-        print("nessun sorgente", file=sys.stderr)
+        print("no source", file=sys.stderr)
         return 2
     graph = rs.build_graph(root, files)
     reverse: dict[str, set[str]] = {}
@@ -85,7 +85,7 @@ def run(root: str, n_cases: int, as_json: bool) -> int:
 
     cases = find_cases(rs, root, files, reverse, n_cases)
     if not cases:
-        print("nessun raise-site candidato (con caller e messaggio letterale)",
+        print("no candidate raise site (with caller and literal message)",
               file=sys.stderr)
         return 2
 
@@ -123,7 +123,7 @@ def run(root: str, n_cases: int, as_json: bool) -> int:
         return 0
     print(f"# sufficiency bench — {root}")
     print(f"sorgenti: {len(files)} | casi: {len(cases)} "
-          f"(raise-site reali, sintomo parziale: frame del caller + messaggio)")
+          f"(real raise sites, partial symptom: caller frame + message)")
     print(f"{'deps':>5} {'imp':>4} {'suff.':>7} {'rate':>7} {'slice medio':>12}")
     for r in results:
         print(f"{r['deps_depth']:>5} {r['importers_depth']:>4} "

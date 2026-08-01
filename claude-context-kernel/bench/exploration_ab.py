@@ -69,21 +69,21 @@ CHILD_ENV = {**os.environ,
              "CK_DELTA": "0",
              "CK_PRETOOL": "0"}
 
-PROMPT = """Lavori nel repository nella directory corrente. Un utente riporta \
-questo errore, in forma parziale come capita nella realta':
+PROMPT = """You are working in the repository in the current directory. A user \
+reports this error, in the partial form you get in the real world:
 
 {symptom}
 
-Trova il punto ESATTO del repository che SOLLEVA questo errore. Esplora coi \
-tool a disposizione (read, grep, find, bash in sola lettura). Non modificare \
-nulla. Quando sei sicuro, l'ULTIMA riga della risposta deve essere SOLO:
-percorso/relativo/file.py::nome_funzione"""
+Find the EXACT point in the repository that RAISES this error. Explore with \
+the tools available (read, grep, find, read-only bash). Do not modify \
+anything. When you are sure, the LAST line of your answer must be ONLY:
+relative/path/file.py::function_name"""
 
 INJECT = """
 
-[context-kernel] Un tool ha gia' calcolato il working set rilevante per \
-questo sintomo (slicer deterministico sul grafo degli import). Usalo come \
-prior, non come divieto:
+[context-kernel] A tool has already computed the working set relevant to \
+this symptom (deterministic slicer over the import graph). Use it as a \
+prior, not as a prohibition:
 
 {manifest}"""
 
@@ -96,13 +96,13 @@ def degraded_symptom(err: str, msg: str, caller: str,
     l'esplorazione deve navigare il grafo: e' il regime dove l'ipotesi
     prevede che la correttezza possa divergere tra i bracci."""
     if difficulty == "hard":
-        return (f"{err} da qualche parte durante l'esecuzione.\n"
-                f"(nessun messaggio disponibile, traceback perso; il modulo "
-                f"coinvolto lato applicazione dovrebbe essere {caller})")
+        return (f"{err} somewhere during execution.\n"
+                f"(no message available, traceback lost; the module involved "
+                f"on the application side should be {caller})")
     vague = " ".join(msg.split()[:3])
     return (f"{err}: {vague} ...\n"
-            f"(il traceback e' andato perso; il modulo coinvolto lato "
-            f"applicazione dovrebbe essere {caller})")
+            f"(the traceback was lost; the module involved on the application "
+            f"side should be {caller})")
 
 
 def slice_manifest(root: str, symptom: str) -> str:
@@ -188,7 +188,7 @@ def main() -> int:
             reverse.setdefault(d, set()).add(f)
     cases = sb.find_cases(rs, root, files, reverse, args.cases)
     if not cases:
-        print("nessun caso", file=sys.stderr)
+        print("no case", file=sys.stderr)
         return 2
 
     rows = []
