@@ -51,7 +51,7 @@ test("Pi read delta suppresses one unchanged reread then permits a page fault", 
   const third = call(payload);
   assert.equal(first.changed, false);
   assert.equal(second.changed, true);
-  assert.match(second.text, /file INVARIATO/);
+  assert.match(second.text, /file UNCHANGED/);
   assert.equal(third.changed, false);
 });
 
